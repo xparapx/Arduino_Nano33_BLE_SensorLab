@@ -2,9 +2,9 @@
 
 > Arduino Nano 33 BLE Sense의 **내장 센서**를 USB Serial 또는 Web Bluetooth로 브라우저 대시보드에 실시간 표시·기록·내보내기 하는 프로젝트. 학생이 상황에 따라 **USB / BLE를 골라** 쓸 수 있다. 고등학교 SW·AI·물리 실습용.
 
-🔗 **프로젝트 개요:** https://xparapx.github.io/Arduino_Nano33_BLE_WebUI_Demo/  
-
-🖥️ **Dashboard(라이브):** https://xparapx.github.io/Arduino_Nano33_BLE_WebUI_Demo/dashboard.html
+🔗 **프로젝트개요:** https://xparapx.github.io/Arduino_Nano33_BLE_WebUI_Demo/
+🖥️ **WebUI:** https://xparapx.github.io/Arduino_Nano33_BLE_WebUI_Demo/dashboard.html
+📘 **매뉴얼:** https://xparapx.github.io/Arduino_Nano33_BLE_WebUI_Demo/manual.html
 
 `Nano 33 BLE Sense` · `nRF52840` · `Web Serial` · `Web Bluetooth` · `Chart.js` · `CSV·XLSX`
 
@@ -59,6 +59,7 @@ Arduino_Nano33_BLE_WebUI_Demo/
 │  └─ nano33ble_dashboard_rev2.ino    # Rev2 (HS300x·BMI270)
 ├─ docs/                              # GitHub Pages (/docs)
 │  ├─ index.html                      # 프로젝트 개요 (README 구조 동일)
+│  ├─ manual.html                     # 운용 매뉴얼 — 설치·연결·진단
 │  ├─ dashboard.html                  # 배포용 — 라이브러리 내장(오프라인 동작), 개요에서 링크
 │  └─ dashboard_cdn_dev.html          # 개발용 — Chart.js·xlsx를 CDN 로드(인터넷 필요)
 ├─ README.md
@@ -98,6 +99,8 @@ Arduino_Nano33_BLE_WebUI_Demo/
 | 연결됐는데 차트 정지 | 차트 갱신이 수집 상태가 아닌 **연결 상태**에 묶여야 함 |
 | 무선 중 간헐 끊김 | 거리 단축(30cm), 배터리 3.3V 이상, BLE.poll() 호출 확인 |
 
+상세 진단·운용 절차는 [매뉴얼](https://xparapx.github.io/Arduino_Nano33_BLE_WebUI_Demo/manual.html) 참조.
+
 ## 작업 로그
 
 - **2026-04** BLE Characteristic 9→3 통합, TX power·Connection Interval·Keep-alive 튜닝(v2.2~2.5)
@@ -107,4 +110,4 @@ Arduino_Nano33_BLE_WebUI_Demo/
 
 ---
 
-*Maintainer: physics-jh*
+*Maintainer: xparapx*
