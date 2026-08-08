@@ -165,6 +165,23 @@ header{display:flex;align-items:center;justify-content:space-between;padding:0 1
   .ctx-menu .cm-item{height:44px;}
 }
 
+/* ── XY 설정 (⚙ 버튼 + 앵커 팝오버, L-6) ── */
+.xy-gear{width:26px;height:26px;flex-shrink:0;border-radius:7px;border:1px solid var(--border);
+  background:var(--bg3);color:var(--text3);cursor:pointer;display:flex;align-items:center;
+  justify-content:center;transition:all .14s;padding:0;}
+.xy-gear svg{width:14px;height:14px;}
+.xy-gear:hover{color:var(--text);border-color:var(--border2);}
+body.recording .xy-gear{opacity:.4;cursor:not-allowed;}
+.xy-pop{position:fixed;z-index:210;width:240px;display:none;
+  background:var(--bg2);border:1px solid var(--border2);border-radius:var(--rl);
+  box-shadow:0 12px 40px var(--shadow);padding:13px 14px;}
+.xy-pop.show{display:block;}
+.xy-pop .xp-title{font-size:12px;font-weight:700;margin-bottom:9px;}
+.xy-pop .xp-lbl{display:block;font-size:10px;color:var(--text3);margin:6px 0 3px;}
+.xy-pop .xp-sel{width:100%;background:var(--bg3);border:1px solid var(--border2);color:var(--text);
+  border-radius:7px;padding:6px 8px;font-size:12px;font-family:inherit;outline:none;}
+.xy-pop .xp-btns{display:flex;gap:6px;margin-top:10px;}
+
 /* ── ROI 힌트 툴팁 ── */
 .roi-hint{position:fixed;z-index:190;transform:translateX(-50%);pointer-events:none;
   background:var(--bg4);border:1px solid var(--border2);border-radius:7px;
@@ -519,9 +536,10 @@ details.adv summary:hover{color:var(--text2);}
 </div>
 </div>
 
-<!-- ── ROI 컨텍스트 메뉴 / 힌트 ── -->
+<!-- ── ROI 컨텍스트 메뉴 / 힌트 / XY 설정 팝오버 ── -->
 <div class="ctx-menu" id="ctx-menu"></div>
 <div class="roi-hint" id="roi-hint">우클릭으로 내보내기·분석</div>
+<div class="xy-pop" id="xy-pop"></div>
 
 <!-- ── 펌웨어 모달 ── -->
 <div class="modal-overlay" id="modal">
@@ -743,15 +761,6 @@ function rebuildCharts(){
 
   active.forEach(s=>{
     if(S.charts[s.id]) return;
-    // R0: x축 숫자축 — 각 포인트는 {x: elapsed_s, y: value}
-    S.chartData[s.id]={
-      datasets:s.axes.map((ax,i)=>({
-        label:ax, data:[],
-        borderColor:colorVar(s.color,i,s.axes.length),
-        backgroundColor:'transparent',
-        borderWidth:1.5, pointRadius:0, tension:0.3,
-      }))
-    };
     const card=document.createElement('div');
     card.className='chart-card'; card.id='cc-'+s.id;
     card.innerHTML=`
@@ -760,79 +769,212 @@ function rebuildCharts(){
           <div class="chart-bar" style="background:${s.color}"></div>
           <div>
             <div class="chart-title">${s.name} <span style="color:var(--text3);font-weight:400;font-size:11px;">${s.sub}</span></div>
-            <div class="chart-sub">${s.lib} · ${s.unit||'—'}</div>
+            <div class="chart-sub" id="csub-${s.id}">${s.lib} · ${s.unit||'—'}</div>
           </div>
         </div>
-        <div class="live-vals" id="lv-${s.id}">
-          ${s.axes.map((ax,i)=>`<div class="lv" style="color:${colorVar(s.color,i,s.axes.length)}">
-            <div class="lv-num" id="lvn-${s.id}-${i}">—</div>
-            <div class="lv-lbl">${ax}</div>
-          </div>`).join('')}
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div class="live-vals" id="lv-${s.id}">
+            ${s.axes.map((ax,i)=>`<div class="lv" style="color:${colorVar(s.color,i,s.axes.length)}">
+              <div class="lv-num" id="lvn-${s.id}-${i}">—</div>
+              <div class="lv-lbl">${ax}</div>
+            </div>`).join('')}
+          </div>
+          <button class="xy-gear" id="gear-${s.id}" title="XY 변수 설정" onclick="xyGearOpen('${s.id}',event)">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="2.2"/><path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M12.6 3.4l-1.4 1.4M4.8 11.2l-1.4 1.4"/></svg>
+          </button>
         </div>
       </div>
       <div class="chart-body"><canvas id="cv-${s.id}" height="${h}"></canvas></div>`;
     grid.appendChild(card);
-    const ctx=document.getElementById('cv-'+s.id).getContext('2d');
-
-    // temp_hum은 Temp(°C)와 Hum(%)의 스케일이 달라 독립 y축 적용
-    const isTempHum = s.id === 'temp_hum';
-    const chartDatasets = isTempHum
-      ? s.axes.map((ax,i)=>({
-          label:ax, data:[],
-          borderColor:colorVar(s.color,i,s.axes.length),
-          backgroundColor:'transparent',
-          borderWidth:1.5, pointRadius:0, tension:0.3,
-          yAxisID: i===0 ? 'yTemp' : 'yHum',
-        }))
-      : S.chartData[s.id].datasets;
-
-    if(isTempHum) S.chartData[s.id].datasets = chartDatasets;
-
-    // R0: x축은 linear(초 단위) — 접선/적분/피팅/XY 플롯의 전제
-    const xScale={
-      type:'linear',
-      grid:{color:S.theme==='dark'?'rgba(255,255,255,0.04)':'rgba(0,0,0,0.05)'},
-      ticks:{maxTicksLimit:7,font:{size:9},callback:v=>(+v).toFixed(1)},
-      title:{display:true,text:'시간 (s)',font:{size:9}},
-    };
-    const scalesOpt = isTempHum ? {
-      x:xScale,
-      yTemp:{
-        type:'linear', position:'left',
-        grid:{color:S.theme==='dark'?'rgba(255,255,255,0.04)':'rgba(0,0,0,0.05)'},
-        ticks:{font:{size:9},maxTicksLimit:5,color:'#f5a623'},
-        title:{display:true,text:'°C',font:{size:9},color:'#f5a623'},
-      },
-      yHum:{
-        type:'linear', position:'right',
-        grid:{drawOnChartArea:false},
-        ticks:{font:{size:9},maxTicksLimit:5,color:'#aaa'},
-        title:{display:true,text:'%',font:{size:9},color:'#aaa'},
-        min:0, max:100,
-      },
-    } : {
-      x:xScale,
-      y:{
-        grid:{color:S.theme==='dark'?'rgba(255,255,255,0.04)':'rgba(0,0,0,0.05)'},
-        ticks:{font:{size:9},maxTicksLimit:5},
-      },
-    };
-
-    S.charts[s.id]=new Chart(ctx,{
-      type:'line', data:S.chartData[s.id],
-      options:{
-        animation:false, responsive:true, maintainAspectRatio:false,
-        plugins:{
-          legend:{display:s.axes.length>1,position:'top',labels:{boxWidth:8,boxHeight:8,padding:8,font:{size:10}}},
-          tooltip:{mode:'index',intersect:false,callbacks:{label:c=>` ${c.dataset.label}: ${c.parsed.y?.toFixed(isTempHum?1:3)??'—'}`}}
-        },
-        scales: scalesOpt,
-        interaction:{mode:'index',intersect:false}
-      }
-    });
-    S.charts[s.id].$sid=s.id;                                   // ROI 플러그인용 역참조
-    attachRoiDrag(document.getElementById('cv-'+s.id), s.id);   // ROI 드래그 선택
+    createChart(s);
   });
+}
+
+// 차트 인스턴스 생성 — S.chartCfg[sid]에 따라 시간 모드 / XY 모드
+function createChart(s){
+  const sid=s.id;
+  const cfg=S.chartCfg[sid];
+  const isXY = cfg && cfg.mode==='xy';
+  const canvas=document.getElementById('cv-'+sid);
+  if(!canvas) return;
+  if(S.charts[sid]){ S.charts[sid].destroy(); delete S.charts[sid]; }
+  const ctx=canvas.getContext('2d');
+
+  const gridColor=()=>S.theme==='dark'?'rgba(255,255,255,0.04)':'rgba(0,0,0,0.05)';
+
+  // temp_hum은 Temp(°C)와 Hum(%)의 스케일이 달라 독립 y축 적용 (시간 모드 한정)
+  const isTempHum = !isXY && sid === 'temp_hum';
+
+  if(isXY){
+    // XY 모드: 페어링된 {x,y} 단일 시리즈 (시간순 연결 궤적)
+    S.chartData[sid]={
+      datasets:[{
+        label:`${cfg.yLabel}`, data:[],
+        borderColor:s.color, backgroundColor:'transparent',
+        borderWidth:1.2, pointRadius:1.5, tension:0,
+      }]
+    };
+  } else {
+    // R0: x축 숫자축 — 각 포인트는 {x: elapsed_s, y: value}
+    S.chartData[sid]={
+      datasets:s.axes.map((ax,i)=>({
+        label:ax, data:[],
+        borderColor:colorVar(s.color,i,s.axes.length),
+        backgroundColor:'transparent',
+        borderWidth:1.5, pointRadius:0, tension:0.3,
+        ...(isTempHum ? {yAxisID: i===0?'yTemp':'yHum'} : {}),
+      }))
+    };
+  }
+
+  // R0: x축은 linear — 접선/적분/피팅/XY 플롯의 전제. XY 모드는 선택 변수 라벨·단위 표기
+  const xScale={
+    type:'linear',
+    grid:{color:gridColor()},
+    ticks:{maxTicksLimit:7,font:{size:9},callback:v=>(+v).toFixed(1)},
+    title:{display:true,text:isXY?`${cfg.xLabel}${cfg.xUnit?` (${cfg.xUnit})`:''}`:'시간 (s)',font:{size:9}},
+  };
+  const scalesOpt = isTempHum ? {
+    x:xScale,
+    yTemp:{
+      type:'linear', position:'left',
+      grid:{color:gridColor()},
+      ticks:{font:{size:9},maxTicksLimit:5,color:'#f5a623'},
+      title:{display:true,text:'°C',font:{size:9},color:'#f5a623'},
+    },
+    yHum:{
+      type:'linear', position:'right',
+      grid:{drawOnChartArea:false},
+      ticks:{font:{size:9},maxTicksLimit:5,color:'#aaa'},
+      title:{display:true,text:'%',font:{size:9},color:'#aaa'},
+      min:0, max:100,
+    },
+  } : {
+    x:xScale,
+    y:{
+      grid:{color:gridColor()},
+      ticks:{font:{size:9},maxTicksLimit:5},
+      ...(isXY ? {title:{display:true,text:`${cfg.yLabel}${cfg.yUnit?` (${cfg.yUnit})`:''}`,font:{size:9}}} : {}),
+    },
+  };
+
+  S.charts[sid]=new Chart(ctx,{
+    type:'line', data:S.chartData[sid],
+    options:{
+      animation:false, responsive:true, maintainAspectRatio:false,
+      plugins:{
+        legend:{display:!isXY && s.axes.length>1,position:'top',labels:{boxWidth:8,boxHeight:8,padding:8,font:{size:10}}},
+        tooltip:{mode:isXY?'nearest':'index',intersect:false,callbacks:{label:c=>` ${c.dataset.label}: ${c.parsed.y?.toFixed(isTempHum?1:3)??'—'}`}}
+      },
+      scales: scalesOpt,
+      interaction:{mode:isXY?'nearest':'index',intersect:false}
+    }
+  });
+  S.charts[sid].$sid=sid;                 // ROI·분석 플러그인용 역참조
+  if(!canvas.$roiAttached){               // 핸들러 중복 부착 방지
+    attachRoiDrag(canvas, sid);
+    canvas.$roiAttached=true;
+  }
+
+  // 헤더 서브라벨 갱신
+  const sub=document.getElementById('csub-'+sid);
+  if(sub) sub.textContent = isXY ? `XY 플롯 · x=${cfg.xLabel} · y=${cfg.yLabel}` : `${s.lib} · ${s.unit||'—'}`;
+}
+
+// ═══════════════════════════════════════════════
+// XY 변수 지정 (기능 5) — ⚙ 팝오버
+// ═══════════════════════════════════════════════
+// 변수 옵션: 'time' 또는 'sid:axisIdx'
+function _xyVarOptions(includeTime){
+  const opts=[];
+  if(includeTime) opts.push({v:'time', label:'시간 (s)'});
+  SENSORS.filter(s=>S.active.has(s.id)).forEach(s=>{
+    s.axes.forEach((ax,i)=>opts.push({v:`${s.id}:${i}`, label:`${s.name}·${ax}`, unit:s.unit}));
+  });
+  return opts;
+}
+function _parseVar(v){
+  const [sid,axis]=v.split(':');
+  const s=SENSORS.find(x=>x.id===sid);
+  return {sid, axis:+axis, label:`${s.name}·${s.axes[+axis]}`, unit:s.unit||''};
+}
+
+function xyGearOpen(sid, ev){
+  ev.stopPropagation();
+  if(S.recording){ log('수집 중에는 XY 설정을 변경할 수 없습니다.','err'); return; }
+  const pop=document.getElementById('xy-pop');
+  const cfg=S.chartCfg[sid];
+  const cur={ x: cfg&&cfg.mode==='xy' ? `${cfg.x.sid}:${cfg.x.axis}` : 'time',
+              y: cfg&&cfg.mode==='xy' ? `${cfg.y.sid}:${cfg.y.axis}` : '' };
+  const xOpts=_xyVarOptions(true), yOpts=_xyVarOptions(false);
+  pop.innerHTML=`
+    <div class="xp-title">XY 변수 설정 — ${esc(SENSORS.find(s=>s.id===sid)?.name??sid)} 카드</div>
+    <label class="xp-lbl">x축</label>
+    <select id="xp-x" class="xp-sel">${xOpts.map(o=>`<option value="${o.v}"${o.v===cur.x?' selected':''}>${esc(o.label)}</option>`).join('')}</select>
+    <label class="xp-lbl">y축</label>
+    <select id="xp-y" class="xp-sel">${yOpts.map(o=>`<option value="${o.v}"${o.v===cur.y?' selected':''}>${esc(o.label)}</option>`).join('')}</select>
+    <div class="xp-btns">
+      <button class="btn primary" style="flex:1;" id="xp-apply">적용</button>
+      <button class="btn" style="flex:1;" id="xp-reset">시간축으로 초기화</button>
+    </div>
+    <div class="xs" style="margin-top:6px;">x=시간이면 기본 시간-변수 차트입니다. 변수-변수는 y 샘플마다 가장 최근 x값과 짝지어 그립니다.</div>`;
+  pop.classList.add('show');
+  // 앵커: ⚙ 버튼 기준 (팝오버, 모달 금지 — L-6)
+  const r=ev.currentTarget.getBoundingClientRect();
+  const pad=8;
+  pop.style.left='0px'; pop.style.top='0px';
+  const pr=pop.getBoundingClientRect();
+  let x=r.right-pr.width, y=r.bottom+6;
+  if(x<pad) x=pad;
+  if(y+pr.height>window.innerHeight-pad) y=r.top-pr.height-6;
+  pop.style.left=x+'px'; pop.style.top=Math.max(pad,y)+'px';
+
+  document.getElementById('xp-apply').onclick=()=>{ xyApply(sid); };
+  document.getElementById('xp-reset').onclick=()=>{ xyReset(sid); };
+}
+function hideXyPop(){ const p=document.getElementById('xy-pop'); if(p) p.classList.remove('show'); }
+document.addEventListener('click',(e)=>{
+  const p=document.getElementById('xy-pop');
+  if(p && p.classList.contains('show') && !p.contains(e.target)) hideXyPop();
+});
+
+function xyApply(sid){
+  const xv=document.getElementById('xp-x').value;
+  const yv=document.getElementById('xp-y').value;
+  hideXyPop();
+  if(xv==='time'){ xyReset(sid); return; }
+  if(!yv){ log('y축 변수를 선택하세요.','err'); return; }
+  const x=_parseVar(xv), y=_parseVar(yv);
+  S.chartCfg[sid]={mode:'xy', x, y, xLabel:x.label, yLabel:y.label, xUnit:x.unit, yUnit:y.unit};
+  S.xyRecorded[sid]=[];                 // 설정 변경 시 해당 차트 초기화
+  clearRoi();
+  createChart(SENSORS.find(s=>s.id===sid));
+  log(`XY 설정: x=${x.label}, y=${y.label}`,'sys');
+}
+function xyReset(sid){
+  hideXyPop();
+  if(!S.chartCfg[sid]) return;
+  delete S.chartCfg[sid];
+  delete S.xyRecorded[sid];
+  clearRoi();
+  createChart(SENSORS.find(s=>s.id===sid));
+  log('시간축 차트로 복귀','sys');
+}
+
+// 수집 시작 검증 (기능 5-6): XY 지정 변수의 센서 토글이 꺼져 있으면 시작 차단
+function validateXyBeforeStart(){
+  for(const cid of Object.keys(S.chartCfg)){
+    const c=S.chartCfg[cid];
+    if(!c || c.mode!=='xy' || !S.charts[cid]) continue;
+    for(const v of [c.x, c.y]){
+      if(!S.active.has(v.sid)){
+        const nm=SENSORS.find(s=>s.id===v.sid)?.name??v.sid;
+        log(`XY 차트가 '${nm}'를 사용합니다. 토글을 켜거나 XY 설정을 해제하세요.`,'err');
+        return false;
+      }
+    }
+  }
+  return true;
 }
 
 function colorVar(base,idx,total){
@@ -849,7 +991,8 @@ function lighten(hex,amt){
 // 데이터 푸시
 // ═══════════════════════════════════════════════
 function pushData(sid, values){
-  const cd=S.chartData[sid]; if(!cd) return;
+  // 최신값 캐시 — XY 변수-변수 페어링 소스 (기능 5)
+  S.latest[sid]=values;
 
   // 현재값 숫자 배지 — 연결/데모 중 항상 갱신 (라이브 리드아웃, MBL 관례)
   values.forEach((v,i)=>{
@@ -863,10 +1006,30 @@ function pushData(sid, values){
   const now=new Date();
   const elapsed=S.recActualStart ? +((now-S.recActualStart)/1000).toFixed(2) : 0;
 
-  // 차트 append — R0: {x: elapsed_s, y: value} 포인트 (숫자축), 롤링 버퍼 유지
-  values.forEach((v,i)=>{if(cd.datasets[i]) cd.datasets[i].data.push({x:elapsed, y:v});});
-  cd.datasets.forEach(d=>{while(d.data.length>S.bufSize) d.data.shift();});
-  if(S.charts[sid]) S.charts[sid].update('none');
+  // ① 시간 모드 차트 append — R0: {x: elapsed_s, y: value} 포인트, 롤링 버퍼 유지
+  const cd=S.chartData[sid];
+  const cfg=S.chartCfg[sid];
+  if(cd && (!cfg || cfg.mode!=='xy')){
+    values.forEach((v,i)=>{if(cd.datasets[i]) cd.datasets[i].data.push({x:elapsed, y:v});});
+    cd.datasets.forEach(d=>{while(d.data.length>S.bufSize) d.data.shift();});
+    if(S.charts[sid]) S.charts[sid].update('none');
+  }
+
+  // ② XY 카드 페어링 (MBL 관례): y 샘플 도착 시 가장 최근 x 변수 값과 짝짓기
+  Object.keys(S.chartCfg).forEach(cid=>{
+    const c=S.chartCfg[cid];
+    if(!c || c.mode!=='xy' || !S.charts[cid]) return;
+    if(c.y.sid!==sid) return;
+    const y=values[c.y.axis];
+    const x=(c.x.sid===sid) ? values[c.x.axis] : (S.latest[c.x.sid]||[])[c.x.axis];
+    if(typeof x!=='number'||typeof y!=='number'||isNaN(x)||isNaN(y)) return;
+    const xcd=S.chartData[cid];
+    xcd.datasets[0].data.push({x, y});
+    while(xcd.datasets[0].data.length>S.bufSize) xcd.datasets[0].data.shift();
+    // 비롤링 XY 기록 — 내보내기·분석이 화면 버퍼 한계와 무관하게 정합 (E-2 전제)
+    (S.xyRecorded[cid]=S.xyRecorded[cid]||[]).push({t:elapsed, x, y});
+    S.charts[cid].update('none');
+  });
 
   // 레코드 저장
   const sensor=SENSORS.find(s=>s.id===sid);
@@ -911,18 +1074,22 @@ S.roi={show:false,t1:0,t2:0,sid:null};
 S.roiHintShown=false;   // 1회성 힌트 (세션 단위)
 S.chartCfg={};          // {sid:{mode:'time'|'xy', ...}} — XY 변수 지정 (기능 5)
 S.xyRecorded={};        // {sid:[{t,x,y}...]} — XY 비롤링 기록 (기능 5)
+S.latest={};            // {sid:[v...]} — 각 센서 최신값 캐시 (XY 페어링 소스)
 let _roiDrag=null;      // {sid,x0} 드래그 진행 상태
 
 // 분석 도구 훅 (기능 6에서 본구현으로 대체)
 function anaIntegral(sid){ log('분석 도구가 로드되지 않았습니다.','err'); }
 function anaFitOpen(sid){ log('분석 도구가 로드되지 않았습니다.','err'); }
+function clearAnalysis(){}
 
-// 차트의 x 데이터 범위 [min,max] (첫 데이터셋 기준 — 전 시리즈 동일 x)
+// 차트의 x 데이터 범위 [min,max] — XY 모드는 x가 비단조라 전체 스캔
 function _chartXRange(sid){
   const cd=S.chartData[sid];
   const d=cd&&cd.datasets[0]&&cd.datasets[0].data;
   if(!d||!d.length) return null;
-  return [d[0].x, d[d.length-1].x];
+  let mn=d[0].x, mx=d[0].x;
+  for(const p of d){ if(p.x<mn)mn=p.x; if(p.x>mx)mx=p.x; }
+  return [mn, mx];
 }
 
 // Chart.js 커스텀 플러그인 — 선택 구간 반투명 하이라이트 (R0: 숫자축이라 시간→픽셀 직접 변환)
@@ -1175,6 +1342,7 @@ function toggleRecord(){
 
 function startRecording(){
   if(S.active.size===0){log('활성화된 센서가 없습니다.','err');return;}
+  if(!validateXyBeforeStart()) return;   // 기능 5-6: XY 변수 센서 토글 검증
   const delay = S.trigStart ? parseInt(document.getElementById('ts-val').value)*1000 : 0;
   const autoStop = S.trigEnd ? parseInt(document.getElementById('te-val').value)*1000 : 0;
 
@@ -1191,7 +1359,10 @@ function startRecording(){
 function _doStart(autoStopMs){
   resetCharts();          // 수집 시작 시 차트를 비우고 0부터 새로 그림
   clearRoi();             // 이전 ROI 선택 해제
+  clearAnalysis();        // 접선·적분·피팅 오버레이 제거
+  Object.keys(S.xyRecorded).forEach(k=>S.xyRecorded[k]=[]);   // XY 기록 재시작
   S.recording=true;
+  document.body.classList.add('recording');   // ⚙ 등 수집 중 비활성 표시
   S.recStart=Date.now(); S.recActualStart=new Date();
   S.ltSegStart=Date.now();
   setRecBtn('running','수집 종료');
@@ -1208,6 +1379,7 @@ function _doStart(autoStopMs){
 function stopRecording(){
   clearTimeout(S.trigStartTimer); clearTimeout(S.trigEndTimer);
   S.recording=false;
+  document.body.classList.remove('recording');
   // 차트는 마지막 상태로 정지·유지 — 관찰/ROI 구간 선택용
   clearInterval(S.recTimer);
   setRecBtn('idle','수집 시작');
@@ -1240,8 +1412,10 @@ function clearData(){
     stopRecording();
   }
   S.recorded=[];
+  Object.keys(S.xyRecorded).forEach(k=>S.xyRecorded[k]=[]);
   resetCharts();
   clearRoi();
+  clearAnalysis();        // 접선·피팅 곡선 등 분석 오버레이 포함 해제 (기능 3)
   resetLiveBadges();
   document.getElementById('rec-samples').textContent=0;
   document.getElementById('rec-time').textContent='0:00';
