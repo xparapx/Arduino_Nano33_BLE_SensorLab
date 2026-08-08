@@ -723,6 +723,7 @@ function buildSensorList(){
 function toggleSensor(id){
   S.active.has(id)?S.active.delete(id):S.active.add(id);
   document.getElementById('si-'+id).classList.toggle('active');
+  retargetGraphsToActive();
   sendSensorCfg();
 }
 function toggleAll(on){
@@ -730,6 +731,7 @@ function toggleAll(on){
     on?S.active.add(s.id):S.active.delete(s.id);
     document.getElementById('si-'+s.id).classList.toggle('active',on);
   });
+  retargetGraphsToActive();
   sendSensorCfg();
 }
 
@@ -913,22 +915,25 @@ function renderWorkspace(){
     if(el){ keep[g.gid]=el; el.remove(); }
   });
   ws.innerHTML='';
+  const fresh=[];
   S.layoutRows.forEach(row=>{
     const rd=document.createElement('div');
     rd.className='ws-row'+(row.length>1?' two':'');
     row.forEach(gid=>{
       const g=_graph(gid); if(!g) return;
       let el=keep[gid];
-      if(!el){
-        el=buildGraphCard(g);
-        rd.appendChild(el);
-        createGraphChart(g);
-        const cv=document.getElementById('cv-'+gid);
-        if(cv && !cv.$roiAttached){ attachRoiDrag(cv, gid); cv.$roiAttached=true; }
-        attachDockDrag(document.getElementById('gh-'+gid), gid);
-      } else rd.appendChild(el);
+      if(!el){ el=buildGraphCard(g); fresh.push(g); }
+      rd.appendChild(el);
     });
     ws.appendChild(rd);
+  });
+  // 주의: 차트 생성은 카드가 문서(document)에 붙은 뒤에 해야 한다 —
+  // 붙기 전에 호출하면 getElementById('cv-…')가 null이라 차트가 만들어지지 않음
+  fresh.forEach(g=>{
+    createGraphChart(g);
+    const cv=document.getElementById('cv-'+g.gid);
+    if(cv && !cv.$roiAttached){ attachRoiDrag(cv, g.gid); cv.$roiAttached=true; }
+    attachDockDrag(document.getElementById('gh-'+g.gid), g.gid);
   });
   // ✕ 버튼: 마지막 1개 보호
   S.graphs.forEach(g=>{
@@ -1162,6 +1167,26 @@ function undock(gid){
   S.layoutRows=S.layoutRows.map(r=>r.filter(x=>x!==gid)).filter(r=>r.length);
   S.layoutRows.splice(Math.min(idx+1,S.layoutRows.length), 0, [gid]);
   renderWorkspace();
+}
+
+// ── 센서 활성화 시: 데이터 없는 그래프가 비활성 센서를 가리키면 활성 센서로 재지정 ──
+// (센서를 켰는데 그래프가 반응하지 않는 것처럼 보이는 문제 방지 — 기록이 있으면 건드리지 않음)
+function retargetGraphsToActive(){
+  if(!S.active.size) return;
+  S.graphs.forEach(g=>{
+    const rec=S.graphRec[g.gid]||[[],[]];
+    const hasData=rec[0].length>0 || rec[1].length>0;
+    if(hasData) return;
+    const yv=_parseVar(g.y);
+    if(S.active.has(yv.sid)) return;
+    const s=SENSORS.find(t=>S.active.has(t.id));
+    if(!s) return;
+    g.y=`${s.id}:0`;
+    if(g.y2 && !S.active.has(_parseVar(g.y2).sid)) g.y2=null;
+    if(g.x!=='time' && !S.active.has(_parseVar(g.x).sid)) g.x='time';
+    createGraphChart(g);
+  });
+  saveWorkspace();
 }
 
 // ── 수집 시작 검증: 그래프 변수의 센서 토글이 꺼져 있으면 차단 ──
@@ -2254,6 +2279,8 @@ async function connectSerial(){
     S.connected=true; updateConnUI(true);
     log(`포트 연결됨 (${baud} baud)`,'sys');
     startReadLoop(); sendSensorCfg();
+    // r4-C: 보드가 이미 부팅된 상태면 부팅 배너가 다시 오지 않으므로 ID를 직접 조회
+    setTimeout(()=>{ if(S.connected && S.connMode==='usb') sendCmd('ID?'); }, 400);
   }catch(e){if(e.name!=='NotFoundError')log('연결 실패: '+e.message,'err');}
 }
 async function disconnectSerial(){
@@ -2380,9 +2407,12 @@ function updateMyBoardBadge(){
     el.innerHTML=`내 보드: <b>BLE-${esc(S.myBoardId)}</b>`;
   } else el.style.display='none';
 }
-// 부팅/시스템 메시지에서 DEVICE ID 추출 ("# DEVICE ID : A3F7" / "# ID: A3F7 / BLE-A3F7")
+// 부팅/시스템 메시지에서 DEVICE ID 추출
+// ("# DEVICE ID : A3F7" / "# ID: A3F7 / BLE-A3F7" / "# BLE 장치명: BLE-A3F7" 등)
 function extractBoardId(line){
-  const m=line.match(/DEVICE ID\s*:\s*([0-9A-F]{4})/i) || line.match(/#\s*ID:\s*([0-9A-F]{4})/i);
+  const m=line.match(/DEVICE ID\s*:\s*([0-9A-F]{4})/i)
+       || line.match(/#\s*ID:\s*([0-9A-F]{4})/i)
+       || line.match(/BLE-([0-9A-F]{4})\b/);
   if(m) setMyBoardId(m[1]);
 }
 
@@ -2541,6 +2571,7 @@ function runDemo(){
   ['imu_acc','imu_gyr','temp_hum','mic'].forEach(id=>{
     S.active.add(id); document.getElementById('si-'+id).classList.add('active');
   });
+  retargetGraphsToActive();
   document.getElementById('conn-dot').classList.add('on');
   document.getElementById('conn-label').textContent='데모 모드';
   document.getElementById('rec-btn').disabled=false;
