@@ -121,6 +121,24 @@
   .copybtn:hover{background:rgba(34,211,197,.08)}
   .copybtn.done{color:var(--green);border-color:var(--green)}
 
+  /* ===== 펌웨어 코드 토글 ===== */
+  .fw{margin-top:18px;background:var(--panel);border:1px solid var(--line);
+    border-radius:14px;padding:0 24px}
+  .fw summary{cursor:pointer;font-weight:700;font-size:15px;list-style:none;
+    display:flex;align-items:center;gap:10px;padding:16px 0;flex-wrap:wrap}
+  .fw summary::-webkit-details-marker{display:none}
+  .fw summary::before{content:"\25B8";color:var(--teal);transition:transform .15s}
+  .fw[open] summary::before{transform:rotate(90deg)}
+  .fw .fwver{font-family:var(--mono);font-size:12px;color:var(--dim);font-weight:400}
+  .fwbar{display:flex;justify-content:space-between;align-items:center;gap:10px;
+    flex-wrap:wrap;padding:2px 0 12px}
+  .fwbar span{font-family:var(--mono);font-size:12px;color:var(--dim)}
+  .fwbar .copybtn{padding:9px 18px}
+  .fwcode{background:#0a0e14;border:1px solid var(--line);border-radius:10px;
+    padding:16px 18px;font-family:var(--mono);font-size:12px;line-height:1.55;
+    color:var(--ink);overflow:auto;max-height:520px;margin-bottom:20px;white-space:pre}
+
+
   /* ===== FAQ ===== */
   .faq{background:var(--panel);border:1px solid var(--line);border-radius:14px;
     padding:6px 24px}
@@ -183,7 +201,7 @@
         <span class="no">STEP 1</span>
         <div class="ic">🔌</div>
         <h3>펌웨어 업로드</h3>
-        <p>Arduino IDE에서 <code>firmware/nano33ble_phyphox_rev2.ino</code>를 보드에 업로드. 라이브러리 매니저에서 <code>phyphoxBLE</code> 설치 필요.</p>
+        <p>Arduino IDE에서 <code>firmware/nano33ble_phyphox_rev2.ino</code>를 보드에 업로드. 라이브러리 매니저에서 <code>phyphoxBLE</code> 설치 필요. 코드는 아래 토글에서 바로 복사할 수 있습니다.</p>
       </div>
       <div class="step">
         <span class="no">STEP 2</span>
@@ -198,6 +216,214 @@
         <p>설치된 실험을 열고 재생(▶)을 누르면 근처의 <code>Nano</code> 보드에 자동 연결. 그래프 확인 후 메뉴에서 <b>데이터 내보내기</b>(CSV/Excel).</p>
       </div>
     </div>
+    <details class="fw" id="firmware">
+      <summary>펌웨어 코드 보기 · 복사 <span class="fwver">nano33ble_phyphox_rev2.ino (APDS9960 엔진 리셋 포함)</span></summary>
+      <div class="fwbar">
+        <span>Arduino IDE에 붙여넣고 업로드하세요 — 라이브러리: phyphox BLE · Arduino_BMI270_BMM150 · Arduino_LPS22HB · Arduino_HS300x · Arduino_APDS9960</span>
+        <button class="copybtn" onclick="copyCode(this)">코드 전체 복사</button>
+      </div>
+      <pre class="fwcode"><code id="fwcode">/*
+ * Nano 33 BLE Sense Rev2 + phyphox — 전체 내장 센서 펌웨어
+ * 대응 실험 파일(01~10 .phyphox)과 세트로 사용.
+ *
+ * choice 매핑 (실험 파일의 &lt;config&gt;가 연결 시 자동 전송):
+ *   1  가속도       write(t, ax, ay, az, |a|)      [g]
+ *   2  자이로       write(t, gx, gy, gz, |g|)      [°/s]
+ *   3  자기장       write(t, mx, my, mz, |m|)      [uT]
+ *   6  색상/조도    write(t, ambient, r, g, b)     [counts]
+ *   9  외장 아날로그 write(t, V_A0, V_A1, V_A2)     [V]
+ *   11 환경 통합    write(t, P[hPa], T기압계, T습도계, RH[%])
+ *   12 제스처       write(t, code)  1=왼쪽 2=오른쪽 3=아래→위 4=위→아래
+ *   13 근접         write(t, prox)  0(가까움)~255(멀음)
+ *   14 음량         write(t, dBFS, rms)  (상대 음량, 파형 아님)
+ *
+ * 이전 버전과의 호환: choice 1~6, 9, 11 동일. 4(기압), 5(온습도)도 유지.
+ */
+
+#include &lt;phyphoxBle.h&gt;
+#include &lt;Arduino_BMI270_BMM150.h&gt;   // IMU
+#include &lt;Arduino_LPS22HB.h&gt;         // 기압/온도
+#include &lt;Arduino_HS300x.h&gt;          // 온도/습도
+#include &lt;Arduino_APDS9960.h&gt;        // 근접/조도/색상/제스처
+#include &lt;PDM.h&gt;                     // 내장 마이크
+
+char board_name[] = &quot;Nano&quot;;
+
+float choice = 0.0;
+unsigned long t0 = 0;                // 측정 시작 기준 시각
+unsigned long lastSend = 0;
+const unsigned int PERIOD_ENV  = 100; // 환경(기압/온습도) 전송 주기 ms
+const unsigned int PERIOD_SLOW = 50;  // 근접/조도 등 주기 ms
+
+const int ledR = 22, ledG = 23, ledB = 24;
+
+// ---- 마이크 ----
+static const char PDM_CHANNELS = 1;
+static const int  PDM_FREQ = 16000;
+short sampleBuffer[512];
+volatile int samplesRead = 0;
+
+void onPDMdata() {
+  int bytesAvailable = PDM.available();
+  PDM.read(sampleBuffer, bytesAvailable);
+  samplesRead = bytesAvailable / 2;
+}
+
+void receivedData() {
+  if (PhyphoxBLE::currentConnections &gt;= 1) {
+    PhyphoxBLE::read(choice);
+    t0 = millis();
+  }
+}
+
+float nowSec() { return (millis() - t0) / 1000.0f; }
+
+void setup() {
+  PhyphoxBLE::minConInterval = 6;   // 7.5 ms
+  PhyphoxBLE::maxConInterval = 6;
+  PhyphoxBLE::slaveLatency = 0;
+  PhyphoxBLE::timeout = 10;
+
+  pinMode(ledR, OUTPUT); pinMode(ledG, OUTPUT); pinMode(ledB, OUTPUT);
+  digitalWrite(ledR, LOW); digitalWrite(ledG, HIGH); digitalWrite(ledB, HIGH);
+
+  if (!IMU.begin())    while (1);
+  if (!BARO.begin())   while (1);
+  if (!HS300x.begin()) while (1);
+  if (!APDS.begin())   while (1);
+
+  PDM.onReceive(onPDMdata);
+  PDM.begin(PDM_CHANNELS, PDM_FREQ);   // 실패해도 다른 센서는 동작하도록 중단하지 않음
+
+  PhyphoxBLE::start(board_name);
+  PhyphoxBLE::configHandler = &amp;receivedData;
+}
+
+void loop() {
+  PhyphoxBLE::poll();
+
+  bool connected = (PhyphoxBLE::currentConnections &gt; 0);
+  digitalWrite(ledR, connected ? HIGH : LOW);
+  digitalWrite(ledG, connected ? LOW  : HIGH);
+
+  // ── 실험(choice) 전환 처리 ─────────────────────────
+  // APDS9960은 제스처 엔진이 한 번 켜지면 스스로 꺼지지 않아(GMODE 래치)
+  // 이후 근접/색상/조도 측정이 막힌다 → 전환 시 센서를 리셋해 엔진 상태 초기화.
+  static float prevChoice = -1.0f;
+  if (choice != prevChoice) {
+    prevChoice = choice;
+    lastSend = 0;
+    APDS.end();          // 모든 엔진 비활성 (ENABLE=0)
+    delay(5);
+    APDS.begin();        // 재초기화 → 각 Available()가 필요한 엔진만 다시 켬
+    if (choice == 12.0f) {
+      // 제스처: 데이터 수신 전 &#x27;-&#x27; 플레이스홀더 대신 &#x27;대기&#x27; 표시용 초기값 전송
+      float t0f = nowSec(), idle = 0.0f;
+      PhyphoxBLE::write(t0f, idle);
+    }
+  }
+
+  float t = nowSec();
+  float x, y, z, m;
+
+  if (choice == 1.0f) {                       // 가속도 [g]
+    if (IMU.accelerationAvailable()) {
+      IMU.readAcceleration(x, y, z);
+      m = sqrtf(x * x + y * y + z * z);
+      PhyphoxBLE::write(t, x, y, z, m);
+    }
+
+  } else if (choice == 2.0f) {                // 자이로 [°/s]
+    if (IMU.gyroscopeAvailable()) {
+      IMU.readGyroscope(x, y, z);
+      m = sqrtf(x * x + y * y + z * z);
+      PhyphoxBLE::write(t, x, y, z, m);
+    }
+
+  } else if (choice == 3.0f) {                // 자기장 [uT]
+    if (IMU.magneticFieldAvailable()) {
+      IMU.readMagneticField(x, y, z);
+      m = sqrtf(x * x + y * y + z * z);
+      PhyphoxBLE::write(t, x, y, z, m);
+    }
+
+  } else if (choice == 4.0f) {                // (구버전 호환) 기압 [hPa]
+    if (millis() - lastSend &gt; PERIOD_ENV) {
+      lastSend = millis();
+      float p = BARO.readPressure() * 10.0f;  // kPa → hPa
+      PhyphoxBLE::write(t, p);
+    }
+
+  } else if (choice == 5.0f) {                // (구버전 호환) 온습도
+    if (millis() - lastSend &gt; PERIOD_ENV) {
+      lastSend = millis();
+      float temp = HS300x.readTemperature();
+      float hum  = HS300x.readHumidity();
+      PhyphoxBLE::write(t, temp, hum);
+    }
+
+  } else if (choice == 6.0f) {                // 색상/조도 [counts]
+    if (APDS.colorAvailable()) {
+      int r, g, b, a;
+      APDS.readColor(r, g, b, a);
+      float rf = r, gf = g, bf = b, af = a;
+      PhyphoxBLE::write(t, af, rf, gf, bf);
+    }
+
+  } else if (choice == 9.0f) {                // 외장 아날로그 [V]
+    float v0 = analogRead(A0) * 3.3f / 1023.0f;
+    float v1 = analogRead(A1) * 3.3f / 1023.0f;
+    float v2 = analogRead(A2) * 3.3f / 1023.0f;
+    PhyphoxBLE::write(t, v0, v1, v2);
+    delay(2);
+
+  } else if (choice == 11.0f) {               // 환경 통합: 기압+온도2종+습도
+    if (millis() - lastSend &gt; PERIOD_ENV) {
+      lastSend = millis();
+      float p     = BARO.readPressure() * 10.0f;  // hPa
+      float tBaro = BARO.readTemperature();       // 기압계 내장 온도
+      float tHum  = HS300x.readTemperature();     // 습도계 내장 온도
+      float rh    = HS300x.readHumidity();        // %
+      PhyphoxBLE::write(t, p, tBaro, tHum, rh);
+    }
+
+  } else if (choice == 12.0f) {               // 제스처 (이벤트 발생 시만 전송)
+    if (APDS.gestureAvailable()) {
+      int g = APDS.readGesture();
+      float code = 0.0f;
+      if      (g == GESTURE_LEFT)  code = 1.0f;  // 왼쪽
+      else if (g == GESTURE_RIGHT) code = 2.0f;  // 오른쪽
+      else if (g == GESTURE_UP)    code = 3.0f;  // 아래→위
+      else if (g == GESTURE_DOWN)  code = 4.0f;  // 위→아래
+      if (code &gt; 0.0f) PhyphoxBLE::write(t, code);
+    }
+
+  } else if (choice == 13.0f) {               // 근접 0(가까움)~255(멀음)
+    if (millis() - lastSend &gt; PERIOD_SLOW &amp;&amp; APDS.proximityAvailable()) {
+      lastSend = millis();
+      int p = APDS.readProximity();
+      if (p &gt;= 0) { float pf = p; PhyphoxBLE::write(t, pf); }
+    }
+
+  } else if (choice == 14.0f) {               // 음량 (상대 dBFS)
+    if (samplesRead &gt; 0) {
+      float sum = 0.0f;
+      int n = samplesRead;
+      for (int i = 0; i &lt; n; i++) {
+        float s = sampleBuffer[i];
+        sum += s * s;
+      }
+      samplesRead = 0;
+      float rms = sqrtf(sum / n);
+      if (rms &gt; 0.5f) {
+        float db = 20.0f * log10f(rms / 32768.0f);  // 0 dBFS = 최대
+        PhyphoxBLE::write(t, db, rms);
+      }
+    }
+  }
+}
+</code></pre>
+    </details>
   </div>
 </section>
 
@@ -352,6 +578,23 @@ function copyLink(btn){
     btn.textContent = ok ? '복사됨!' : '복사 실패';
     if (ok) btn.classList.add('done');
     setTimeout(function(){ btn.textContent = '복사'; btn.classList.remove('done'); }, 1800);
+  }
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(txt).then(function(){ done(true); }, function(){ done(false); });
+  } else {
+    var ta = document.createElement('textarea');
+    ta.value = txt; document.body.appendChild(ta); ta.select();
+    try { done(document.execCommand('copy')); } catch(e) { done(false); }
+    document.body.removeChild(ta);
+  }
+}
+
+function copyCode(btn){
+  var txt = document.getElementById('fwcode').textContent;
+  function done(ok){
+    btn.textContent = ok ? '복사됨!' : '복사 실패';
+    if (ok) btn.classList.add('done');
+    setTimeout(function(){ btn.textContent = '코드 전체 복사'; btn.classList.remove('done'); }, 1800);
   }
   if (navigator.clipboard && navigator.clipboard.writeText) {
     navigator.clipboard.writeText(txt).then(function(){ done(true); }, function(){ done(false); });

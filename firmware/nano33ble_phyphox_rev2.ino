@@ -82,6 +82,23 @@ void loop() {
   digitalWrite(ledR, connected ? HIGH : LOW);
   digitalWrite(ledG, connected ? LOW  : HIGH);
 
+  // ── 실험(choice) 전환 처리 ─────────────────────────
+  // APDS9960은 제스처 엔진이 한 번 켜지면 스스로 꺼지지 않아(GMODE 래치)
+  // 이후 근접/색상/조도 측정이 막힌다 → 전환 시 센서를 리셋해 엔진 상태 초기화.
+  static float prevChoice = -1.0f;
+  if (choice != prevChoice) {
+    prevChoice = choice;
+    lastSend = 0;
+    APDS.end();          // 모든 엔진 비활성 (ENABLE=0)
+    delay(5);
+    APDS.begin();        // 재초기화 → 각 Available()가 필요한 엔진만 다시 켬
+    if (choice == 12.0f) {
+      // 제스처: 데이터 수신 전 '-' 플레이스홀더 대신 '대기' 표시용 초기값 전송
+      float t0f = nowSec(), idle = 0.0f;
+      PhyphoxBLE::write(t0f, idle);
+    }
+  }
+
   float t = nowSec();
   float x, y, z, m;
 

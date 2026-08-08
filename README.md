@@ -144,6 +144,7 @@ PC 없이 **스마트폰만으로** 센서 데이터를 수집·시각화·내�
 
 ## 작업 로그
 
+- **2026-08** APDS9960 실험 전환 무응답 수정(엔진 리셋), 안내 페이지에 펌웨어 코드 토글 추가
 - **2026-08** 저장소명 변경: Arduino_Nano33_BLE_WebUI_Demo → Arduino_Nano33_BLE_SensorLab
 - **2026-08** phyphox 모바일 연동 추가 — 실험 11종 + QR 배포, 전용 펌웨어 분리
 - **2026-04** BLE Characteristic 9→3 통합, TX power·Connection Interval·Keep-alive 튜닝(v2.2~2.5)
