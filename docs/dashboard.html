@@ -241,13 +241,26 @@ body.recording .ana-toolbar button{opacity:.4;cursor:not-allowed;}
 .ar-unit{color:var(--text3);}
 .ar-rng{color:var(--text3);font-size:10px;}
 
-/* ── XY 설정 (⚙ 버튼 + 앵커 팝오버, L-6) ── */
-.xy-gear{width:26px;height:26px;flex-shrink:0;border-radius:7px;border:1px solid var(--border);
-  background:var(--bg3);color:var(--text3);cursor:pointer;display:flex;align-items:center;
-  justify-content:center;transition:all .14s;padding:0;}
-.xy-gear svg{width:14px;height:14px;}
-.xy-gear:hover{color:var(--text);border-color:var(--border2);}
-body.recording .xy-gear{opacity:.4;cursor:not-allowed;}
+/* ── B-2: 성분 체크박스 토글 행 ── */
+.series-row{display:flex;gap:10px;flex-wrap:wrap;padding:6px 14px 0;}
+.st-item{font-size:10.5px;font-weight:600;display:inline-flex;align-items:center;gap:4px;
+  cursor:pointer;user-select:none;transition:opacity .14s;}
+.st-item input{width:11px;height:11px;accent-color:currentColor;cursor:pointer;margin:0;}
+.st-item.off{text-decoration:line-through;opacity:.5;}
+
+/* ── B-1: 축 클릭 변수 선택 칩 (SPARKvue 방식) ── */
+.ax-chip{position:absolute;z-index:6;font-size:10px;font-weight:600;font-family:inherit;
+  padding:3px 9px;border-radius:7px;border:1px solid var(--border2);
+  background:color-mix(in srgb, var(--bg2) 85%, transparent);backdrop-filter:blur(4px);
+  color:var(--text2);cursor:pointer;transition:all .14s;white-space:nowrap;}
+.ax-chip:hover{color:var(--text);border-color:var(--accent);background:rgba(61,126,255,.1);}
+.ax-x{bottom:4px;left:50%;transform:translateX(-50%);}
+.ax-y{left:2px;top:50%;transform:translate(0,-50%) rotate(180deg);writing-mode:vertical-rl;}
+body.recording .ax-chip{opacity:.4;cursor:not-allowed;}
+.ctx-menu .cm-group{padding:6px 14px 3px;font-size:10px;font-weight:700;color:var(--text3);
+  letter-spacing:.6px;text-transform:uppercase;}
+
+/* ── 팝오버 (영역 피팅 대화상자, L-6) ── */
 .xy-pop{position:fixed;z-index:210;width:240px;display:none;
   background:var(--bg2);border:1px solid var(--border2);border-radius:var(--rl);
   box-shadow:0 12px 40px var(--shadow);padding:13px 14px;}
@@ -855,13 +868,13 @@ function rebuildCharts(){
               <div class="lv-lbl">${ax}</div>
             </div>`).join('')}
           </div>
-          <button class="xy-gear" id="gear-${s.id}" title="XY 변수 설정" onclick="xyGearOpen('${s.id}',event)">
-            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="2.2"/><path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M12.6 3.4l-1.4 1.4M4.8 11.2l-1.4 1.4"/></svg>
-          </button>
         </div>
       </div>
+      <div class="series-row" id="sr-${s.id}"></div>
       <div class="chart-body">
         <canvas id="cv-${s.id}" height="${h}"></canvas>
+        <button class="ax-chip ax-x" id="axx-${s.id}" title="x축 변수 선택 (클릭)" onclick="axisMenuX('${s.id}',event)">시간 (s)</button>
+        <button class="ax-chip ax-y" id="axy-${s.id}" title="y축 설정 (클릭)" onclick="axisMenuY('${s.id}',event)"></button>
         <div class="ana-toolbar" id="tb-${s.id}">
           <button data-tool="fitview" title="크기 최적화 (재클릭: 자동 복귀)" onclick="anaFitView('${s.id}',this)">
             <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 2H2v4M10 2h4v4M6 14H2v-4M10 14h4v-4"/></svg>
@@ -869,10 +882,10 @@ function rebuildCharts(){
           <button data-tool="tangent" title="접선(기울기)" onclick="anaTangentToggle('${s.id}',this)">
             <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 13L13 3.5M3 13h10"/><circle cx="8" cy="8.2" r="1.3"/></svg>
           </button>
-          <button data-tool="integral" title="면적(적분) — 구간 드래그 필요" onclick="anaIntegral('${s.id}')">
+          <button data-tool="integral" title="면적(적분) — 구간 드래그 필요" onclick="event.stopPropagation();anaIntegral('${s.id}')">
             <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M10.5 2.2c-2 0-2.5 1.4-2.5 3.4v4.8c0 2-.5 3.4-2.5 3.4"/><path d="M4.5 13.8h.01M11.5 2.2h.01"/></svg>
           </button>
-          <button data-tool="fit" title="구간 피팅 — 구간 드래그 필요" onclick="anaFitOpen('${s.id}')">
+          <button data-tool="fit" title="구간 피팅 — 구간 드래그 필요" onclick="event.stopPropagation();anaFitOpen('${s.id}')">
             <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 13c3-1 4-7 6-7s3 5 6 4"/><path d="M2 13h12" stroke-dasharray="2 2"/></svg>
           </button>
         </div>
@@ -964,7 +977,8 @@ function createChart(s){
     options:{
       animation:false, responsive:true, maintainAspectRatio:false,
       plugins:{
-        legend:{display:!isXY && s.axes.length>1,position:'top',labels:{boxWidth:8,boxHeight:8,padding:8,font:{size:10}}},
+        // B-2: 기본 범례 비활성 — 커스텀 성분 토글 행으로 일원화 (이중화 방지)
+        legend:{display:false},
         tooltip:{mode:isXY?'nearest':'index',intersect:false,callbacks:{label:c=>` ${c.dataset.label}: ${c.parsed.y?.toFixed(isTempHum?1:3)??'—'}`}}
       },
       scales: scalesOpt,
@@ -977,9 +991,12 @@ function createChart(s){
     canvas.$roiAttached=true;
   }
 
-  // 헤더 서브라벨 갱신
+  // 숨김 성분 반영 + 헤더 서브라벨·축 칩·성분 토글 행 갱신
+  applySeriesVisibility(sid);
   const sub=document.getElementById('csub-'+sid);
   if(sub) sub.textContent = isXY ? `XY 플롯 · x=${cfg.xLabel} · y=${cfg.yLabel}` : `${s.lib} · ${s.unit||'—'}`;
+  updateAxisChips(sid);
+  renderSeriesToggles(sid);
 }
 
 // ═══════════════════════════════════════════════
@@ -1000,58 +1017,13 @@ function _parseVar(v){
   return {sid, axis:+axis, label:`${s.name}·${s.axes[+axis]}`, unit:s.unit||''};
 }
 
-function xyGearOpen(sid, ev){
-  ev.stopPropagation();
-  if(S.recording){ log('수집 중에는 XY 설정을 변경할 수 없습니다.','err'); return; }
-  const pop=document.getElementById('xy-pop');
-  const cfg=S.chartCfg[sid];
-  const cur={ x: cfg&&cfg.mode==='xy' ? `${cfg.x.sid}:${cfg.x.axis}` : 'time',
-              y: cfg&&cfg.mode==='xy' ? `${cfg.y.sid}:${cfg.y.axis}` : '' };
-  const xOpts=_xyVarOptions(true), yOpts=_xyVarOptions(false);
-  pop.innerHTML=`
-    <div class="xp-title">XY 변수 설정 — ${esc(SENSORS.find(s=>s.id===sid)?.name??sid)} 카드</div>
-    <label class="xp-lbl">x축</label>
-    <select id="xp-x" class="xp-sel">${xOpts.map(o=>`<option value="${o.v}"${o.v===cur.x?' selected':''}>${esc(o.label)}</option>`).join('')}</select>
-    <label class="xp-lbl">y축</label>
-    <select id="xp-y" class="xp-sel">${yOpts.map(o=>`<option value="${o.v}"${o.v===cur.y?' selected':''}>${esc(o.label)}</option>`).join('')}</select>
-    <div class="xp-btns">
-      <button class="btn primary" style="flex:1;" id="xp-apply">적용</button>
-      <button class="btn" style="flex:1;" id="xp-reset">시간축으로 초기화</button>
-    </div>
-    <div class="xs" style="margin-top:6px;">x=시간이면 기본 시간-변수 차트입니다. 변수-변수는 y 샘플마다 가장 최근 x값과 짝지어 그립니다.</div>`;
-  pop.classList.add('show');
-  // 앵커: ⚙ 버튼 기준 (팝오버, 모달 금지 — L-6)
-  const r=ev.currentTarget.getBoundingClientRect();
-  const pad=8;
-  pop.style.left='0px'; pop.style.top='0px';
-  const pr=pop.getBoundingClientRect();
-  let x=r.right-pr.width, y=r.bottom+6;
-  if(x<pad) x=pad;
-  if(y+pr.height>window.innerHeight-pad) y=r.top-pr.height-6;
-  pop.style.left=x+'px'; pop.style.top=Math.max(pad,y)+'px';
-
-  document.getElementById('xp-apply').onclick=()=>{ xyApply(sid); };
-  document.getElementById('xp-reset').onclick=()=>{ xyReset(sid); };
-}
+// B-1: ⚙ 팝오버는 축 칩 방식으로 대체·제거됨. #xy-pop 컨테이너는 영역 피팅 대화상자가 사용.
 function hideXyPop(){ const p=document.getElementById('xy-pop'); if(p) p.classList.remove('show'); }
 document.addEventListener('click',(e)=>{
   const p=document.getElementById('xy-pop');
   if(p && p.classList.contains('show') && !p.contains(e.target)) hideXyPop();
 });
 
-function xyApply(sid){
-  const xv=document.getElementById('xp-x').value;
-  const yv=document.getElementById('xp-y').value;
-  hideXyPop();
-  if(xv==='time'){ xyReset(sid); return; }
-  if(!yv){ log('y축 변수를 선택하세요.','err'); return; }
-  const x=_parseVar(xv), y=_parseVar(yv);
-  S.chartCfg[sid]={mode:'xy', x, y, xLabel:x.label, yLabel:y.label, xUnit:x.unit, yUnit:y.unit};
-  S.xyRecorded[sid]=[];                 // 설정 변경 시 해당 차트 초기화
-  clearRoi();
-  createChart(SENSORS.find(s=>s.id===sid));
-  log(`XY 설정: x=${x.label}, y=${y.label}`,'sys');
-}
 function xyReset(sid){
   hideXyPop();
   if(!S.chartCfg[sid]) return;
@@ -1171,11 +1143,44 @@ function resetCharts(){
 // 수집 정지 상태 + 데이터 존재 시, 차트 위 가로 드래그로 시간 구간 선택.
 // 선택은 [t1,t2] 시간 기준 — 드래그한 차트뿐 아니라 전 센서 행을 내보낸다 (MBL 관례).
 // 주의: 차트 버퍼는 롤링(S.bufSize)이라 화면에 보이는 구간만 선택 가능.
-S.roi={show:false,t1:0,t2:0,sid:null};
+// B-3: 사각형 박스 ROI — [x1,x2]×[y1,y2] (y 단위는 선택한 차트의 y축 기준)
+S.roi={show:false,sid:null,x1:0,x2:0,y1:0,y2:0};
 S.roiHintShown=false;   // 1회성 힌트 (세션 단위)
 S.chartCfg={};          // {sid:{mode:'time'|'xy', ...}} — XY 변수 지정 (기능 5)
 S.xyRecorded={};        // {sid:[{t,x,y}...]} — XY 비롤링 기록 (기능 5)
 S.latest={};            // {sid:[v...]} — 각 센서 최신값 캐시 (XY 페어링 소스)
+S.seriesOff={};         // {sid:Set(axisIdx)} — 꺼진 성분 (B-2: 분석·내보내기에서 제외)
+
+// ── B-2: 시리즈(성분) 토글 — 꺼진 성분은 표시·분석·내보내기 전체에서 제외 ──
+function _offSet(sid){ return S.seriesOff[sid]||new Set(); }
+function toggleSeries(sid, i){
+  const off=(S.seriesOff[sid]=S.seriesOff[sid]||new Set());
+  off.has(i)?off.delete(i):off.add(i);
+  applySeriesVisibility(sid);
+  renderSeriesToggles(sid);
+  if(S.roi.show && S.roi.sid===sid) clearRoi();   // 선택 데이터 구성이 바뀌므로 해제
+}
+function applySeriesVisibility(sid){
+  const cd=S.chartData[sid]; const ch=S.charts[sid];
+  const cfg=S.chartCfg[sid];
+  if(cd && (!cfg||cfg.mode!=='xy')){
+    const off=_offSet(sid);
+    cd.datasets.forEach((d,i)=>d.hidden=off.has(i));
+  }
+  if(ch) ch.update('none');
+}
+function renderSeriesToggles(sid){
+  const el=document.getElementById('sr-'+sid); if(!el) return;
+  const cfg=S.chartCfg[sid];
+  const s=SENSORS.find(t=>t.id===sid);
+  if((cfg&&cfg.mode==='xy') || s.axes.length<2){ el.style.display='none'; return; }
+  el.style.display='';
+  const off=_offSet(sid);
+  el.innerHTML=s.axes.map((ax,i)=>`
+    <label class="st-item${off.has(i)?' off':''}" style="color:${colorVar(s.color,i,s.axes.length)}">
+      <input type="checkbox" ${off.has(i)?'':'checked'} onchange="toggleSeries('${sid}',${i})">${ax}
+    </label>`).join('');
+}
 let _roiDrag=null;      // {sid,x0} 드래그 진행 상태
 
 // ═══════════════════════════════════════════════
@@ -1313,21 +1318,32 @@ function analysisSeries(sid){
   const cfg=S.chartCfg[sid];
   if(cfg&&cfg.mode==='xy') return [{idx:0,label:cfg.yLabel,unit:cfg.yUnit||'',xUnit:cfg.xUnit||''}];
   const s=SENSORS.find(x=>x.id===sid);
-  return s.axes.map((ax,i)=>({idx:i,label:ax,unit:s.unit||'',xUnit:'s'}));
+  const off=_offSet(sid);   // B-2: 꺼진 성분은 분석 대상에서 제외
+  return s.axes.map((ax,i)=>({idx:i,label:ax,unit:s.unit||'',xUnit:'s'})).filter(su=>!off.has(su.idx));
 }
-function analysisPoints(sid, seriesIdx, useRoi){
+// roiMode: null(전체) | 'box'(x·y 박스 — 내보내기·피팅) | 'x'(x구간만 — 적분, B-3 규칙)
+function analysisPoints(sid, seriesIdx, roiMode){
   const cfg=S.chartCfg[sid];
-  const t1=useRoi?S.roi.t1:null, t2=useRoi?S.roi.t2:null;
+  const useRoi=!!roiMode && S.roi.show;
+  const box=useRoi?_roiBox():null;
+  const hasY=useRoi && roiMode==='box';
   if(cfg&&cfg.mode==='xy'){
     let rows=S.xyRecorded[sid]||[];
-    if(useRoi) rows=rows.filter(r=>r.x>=t1&&r.x<=t2);
+    if(box) rows=rows.filter(r=>r.x>=box.x1&&r.x<=box.x2);
+    if(hasY) rows=rows.filter(r=>r.y>=box.y1&&r.y<=box.y2);
     return rows.map(r=>({x:r.x,y:r.y})).sort((a,b)=>a.x-b.x);
   }
   const s=SENSORS.find(x=>x.id===sid);
   let rows=S.recorded.filter(r=>r.sensor===s.name);
-  if(useRoi) rows=rows.filter(r=>r.elapsed_s>=t1&&r.elapsed_s<=t2);
+  if(box) rows=rows.filter(r=>r.elapsed_s>=box.x1&&r.elapsed_s<=box.x2);
   const ax=s.axes[seriesIdx];
-  return rows.map(r=>({x:r.elapsed_s,y:+r[ax]})).filter(p=>isFinite(p.y));
+  let pts=rows.map(r=>({x:r.elapsed_s,y:+r[ax]})).filter(p=>isFinite(p.y));
+  if(hasY) pts=pts.filter(p=>p.y>=box.y1&&p.y<=box.y2);
+  return pts;
+}
+// 박스 내부 점 수 (메뉴 헤더 표기용 — 전 시리즈 합)
+function _roiPointCount(sid){
+  return analysisSeries(sid).reduce((n,su)=>n+analysisPoints(sid,su.idx,'box').length, 0);
 }
 
 // ── 분석 결과 행 ──
@@ -1379,6 +1395,7 @@ S.tangentSid=null;
 function anaTangentToggle(sid, btn){
   if(S.recording){ log('수집 중에는 사용할 수 없습니다.','err'); return; }
   if(!_chartXRange(sid)){ log('데이터가 없습니다.','err'); return; }
+  if(!analysisSeries(sid).length){ roiToast('모든 성분이 꺼져 있습니다', btn); return; }   // B-2
   if(S.tangentSid===sid){
     S.tangentSid=null; btn.classList.remove('on');
     const ch=S.charts[sid]; if(ch){ delete ch.$tan; ch.update('none'); }
@@ -1396,9 +1413,11 @@ function tangentMove(sid, px, py){
   if(S.tangentSid!==sid) return;
   const ch=S.charts[sid]; if(!ch) return;
   const cd=S.chartData[sid];
-  // 커서에 가장 가까운 데이터 점 (전 시리즈, 픽셀 거리)
+  const off=_offSet(sid);
+  // 커서에 가장 가까운 데이터 점 (켜진 시리즈만 — B-2, 픽셀 거리)
   let best=null;
   cd.datasets.forEach((d,di)=>{
+    if(d.hidden||off.has(di)) return;
     d.data.forEach((p,i)=>{
       const dx=ch.scales.x.getPixelForValue(p.x)-px;
       const yScale=ch.scales[d.yAxisID||'y']||ch.scales.y;
@@ -1419,21 +1438,26 @@ function tangentMove(sid, px, py){
 // ── 6-C 면적(적분) — ROI 연동 ──
 function anaIntegral(sid){
   if(S.recording){ log('수집 중에는 사용할 수 없습니다.','err'); return; }
-  if(!S.roi.show){ log('먼저 구간을 드래그하세요.','err'); return; }
+  if(!analysisSeries(sid).length){ roiToast('모든 성분이 꺼져 있습니다', document.getElementById('tb-'+sid)); return; }   // B-2
+  if(!S.roi.show){
+    roiToast('먼저 영역을 드래그하세요', document.getElementById('tb-'+sid));
+    log('먼저 구간을 드래그하세요.','err'); return;
+  }
   const ch=S.charts[sid]; if(!ch) return;
+  // B-3 규칙: 적분은 x구간만 사용 (y범위 무시 — 중간 점이 빠진 적분은 물리적으로 무의미)
   const results=[];
   analysisSeries(sid).forEach(su=>{
-    const pts=analysisPoints(sid, su.idx, true);
+    const pts=analysisPoints(sid, su.idx, 'x');
     if(pts.length<2) return;
     const v=trapz(pts);
     const unit=su.unit&&su.xUnit?`${su.unit}·${su.xUnit}`:'';
     results.push({label:su.label, val:v, unit, di:su.idx});
-    const plain=`∫${su.label} = ${sig(v)}${unit?` ${unit}`:''}  [${S.roi.t1.toFixed(2)} ~ ${S.roi.t2.toFixed(2)}]`;
-    anaResult(sid, `<b>∫ ${esc(su.label)}</b> = <span class="ar-val">${sig(v)}</span>${unit?` <span class="ar-unit">${esc(unit)}</span>`:''} <span class="ar-rng">(${S.roi.t1.toFixed(2)} ~ ${S.roi.t2.toFixed(2)})</span>`, plain);
+    const plain=`∫${su.label} = ${sig(v)}${unit?` ${unit}`:''}  [x: ${S.roi.x1.toFixed(2)} ~ ${S.roi.x2.toFixed(2)}, x구간 기준]`;
+    anaResult(sid, `<b>∫ ${esc(su.label)}</b> = <span class="ar-val">${sig(v)}</span>${unit?` <span class="ar-unit">${esc(unit)}</span>`:''} <span class="ar-rng">(x: ${S.roi.x1.toFixed(2)} ~ ${S.roi.x2.toFixed(2)} · x구간 기준)</span>`, plain);
     log(plain,'sys');
   });
   if(!results.length){ log('선택 구간에 데이터가 없습니다.','err'); return; }
-  ch.$integral={t1:S.roi.t1, t2:S.roi.t2, series:results.map(r=>r.di)};
+  ch.$integral={x1:S.roi.x1, x2:S.roi.x2, series:results.map(r=>r.di)};
   ch.update('none');
 }
 
@@ -1448,11 +1472,15 @@ const FIT_MODELS=[
 ];
 function anaFitOpen(sid){
   if(S.recording){ log('수집 중에는 사용할 수 없습니다.','err'); return; }
-  if(!S.roi.show){ log('먼저 구간을 드래그하세요.','err'); return; }
+  if(!analysisSeries(sid).length){ roiToast('모든 성분이 꺼져 있습니다', document.getElementById('tb-'+sid)); return; }   // B-2
+  if(!S.roi.show){
+    roiToast('먼저 영역을 드래그하세요', document.getElementById('tb-'+sid));
+    log('먼저 구간을 드래그하세요.','err'); return;
+  }
   const pop=document.getElementById('xy-pop');    // 팝오버 컨테이너 재사용
   const series=analysisSeries(sid);
   pop.innerHTML=`
-    <div class="xp-title">구간 피팅 — ${S.roi.t1.toFixed(1)} ~ ${S.roi.t2.toFixed(1)}</div>
+    <div class="xp-title">영역 피팅 — x: ${sig(S.roi.x1,3)}~${sig(S.roi.x2,3)} · y: ${sig(S.roi.y1,3)}~${sig(S.roi.y2,3)}</div>
     <label class="xp-lbl">모델</label>
     <select id="fit-model" class="xp-sel">${FIT_MODELS.map(m=>`<option value="${m.id}">${esc(m.name)}</option>`).join('')}</select>
     ${series.length>1?`<label class="xp-lbl">시리즈</label>
@@ -1473,13 +1501,13 @@ function anaFitOpen(sid){
 function anaFitRun(sid, modelId, seriesIdx){
   const model=FIT_MODELS.find(m=>m.id===modelId);
   const su=analysisSeries(sid).find(s=>s.idx===seriesIdx);
-  const pts=analysisPoints(sid, seriesIdx, true);
-  if(pts.length<3){ log('선택 구간의 데이터가 부족합니다.','err'); return; }
+  const pts=analysisPoints(sid, seriesIdx, 'box');   // B-3: 피팅은 박스 내부 점만 (y범위 = 이상치 제외)
+  if(pts.length<3){ log('선택 영역의 데이터가 부족합니다.','err'); return; }
   const fit=model.f(pts);
   if(!fit){ log(`피팅 실패: ${model.name} — 데이터가 모델 조건에 맞지 않습니다.`,'err'); return; }
   const st=fitStats(pts, fit.fn);
   const ch=S.charts[sid]; if(!ch) return;
-  (ch.$fits=ch.$fits||[]).push({fn:fit.fn, t1:S.roi.t1, t2:S.roi.t2});
+  (ch.$fits=ch.$fits||[]).push({fn:fit.fn, x1:S.roi.x1, x2:S.roi.x2});
   ch.update('none');
   const ptxt=Object.entries(fit.params).map(([k,v])=>`${k}=${sig(v)}`).join(', ');
   const plain=`피팅[${model.name}] ${su.label}: ${fit.eq} | ${ptxt} | R²=${sig(st.r2)} RMS=${sig(st.rms)}`;
@@ -1498,12 +1526,12 @@ const anaPlugin={
     if(!xs||!ys) return;
     // 적분 채움
     if(chart.$integral){
-      const {t1,t2,series}=chart.$integral;
+      const {x1,x2,series}=chart.$integral;
       const cd=S.chartData[chart.$sid];
       ctx.save();
       series.forEach(di=>{
         const d=cd.datasets[di]; if(!d) return;
-        const seg=d.data.filter(p=>p.x>=t1&&p.x<=t2);
+        const seg=d.data.filter(p=>p.x>=x1&&p.x<=x2);
         if(seg.length<2) return;
         const y0=Math.max(area.top, Math.min(area.bottom, ys.getPixelForValue(0)));
         ctx.beginPath();
@@ -1528,7 +1556,7 @@ const anaPlugin={
         ctx.beginPath();
         const N=100;
         for(let i=0;i<=N;i++){
-          const x=f.t1+(f.t2-f.t1)*i/N;
+          const x=f.x1+(f.x2-f.x1)*i/N;
           const yy=f.fn(x);
           if(!isFinite(yy)) continue;
           const pxx=xs.getPixelForValue(x), pyy=ys.getPixelForValue(yy);
@@ -1610,30 +1638,31 @@ function _chartXRange(sid){
   return [mn, mx];
 }
 
-// Chart.js 커스텀 플러그인 — 선택 구간 반투명 하이라이트 (R0: 숫자축이라 시간→픽셀 직접 변환)
+// 차트의 주 y축 스케일 (temp_hum 이중축은 좌측 yTemp 기준)
+function _chartYScale(chart){ return chart.scales.y || chart.scales.yTemp; }
+
+// Chart.js 커스텀 플러그인 — B-3: 사각형 박스 하이라이트 (선택을 만든 차트에만 표시)
 const roiPlugin={
   id:'roiHighlight',
   afterDatasetsDraw(chart){
-    if(!S.roi.show) return;
-    const sid=chart.$sid;
-    const range=_chartXRange(sid); if(!range) return;
-    if(S.roi.t2<range[0]||S.roi.t1>range[1]) return;
-    const xs=chart.scales.x, area=chart.chartArea, ctx=chart.ctx;
-    const x1=Math.max(area.left, xs.getPixelForValue(S.roi.t1));
-    const x2=Math.min(area.right, xs.getPixelForValue(S.roi.t2));
-    if(x2<=x1) return;
+    if(!S.roi.show || chart.$sid!==S.roi.sid) return;
+    const xs=chart.scales.x, ys=_chartYScale(chart), area=chart.chartArea, ctx=chart.ctx;
+    if(!ys) return;
+    const x1=Math.max(area.left,  xs.getPixelForValue(S.roi.x1));
+    const x2=Math.min(area.right, xs.getPixelForValue(S.roi.x2));
+    const yTop=Math.max(area.top,    Math.min(ys.getPixelForValue(S.roi.y1), ys.getPixelForValue(S.roi.y2)));
+    const yBot=Math.min(area.bottom, Math.max(ys.getPixelForValue(S.roi.y1), ys.getPixelForValue(S.roi.y2)));
+    if(x2<=x1||yBot<=yTop) return;
     ctx.save();
     const teal=cssVar('--teal','#2dd4bf');
     ctx.globalAlpha=0.12;                       // --teal 12% (L-8)
     ctx.fillStyle=teal;
-    ctx.fillRect(x1, area.top, x2-x1, area.bottom-area.top);
-    ctx.globalAlpha=0.55;
+    ctx.fillRect(x1, yTop, x2-x1, yBot-yTop);
+    ctx.globalAlpha=0.7;
     ctx.strokeStyle=teal;
     ctx.lineWidth=1;
-    ctx.beginPath();
-    ctx.moveTo(x1,area.top); ctx.lineTo(x1,area.bottom);
-    ctx.moveTo(x2,area.top); ctx.lineTo(x2,area.bottom);
-    ctx.stroke();
+    ctx.setLineDash([4,3]);                     // 점선 테두리 (Capstone 관례)
+    ctx.strokeRect(x1, yTop, x2-x1, yBot-yTop);
     ctx.restore();
   }
 };
@@ -1647,12 +1676,15 @@ function _pxToElapsed(chart, px){
   return Math.max(range[0], Math.min(range[1], t));
 }
 
-// 선택 구간이 이 차트의 px 좌표를 포함하는지
-function _pxInRoi(chart, px){
-  if(!S.roi.show) return false;
-  const xs=chart.scales.x;
-  const x1=xs.getPixelForValue(S.roi.t1), x2=xs.getPixelForValue(S.roi.t2);
-  return px>=Math.min(x1,x2) && px<=Math.max(x1,x2);
+// 선택 박스가 이 차트의 (px,py) 좌표를 포함하는지 (선택을 만든 차트에서만 유효)
+function _pxInRoi(chart, px, py){
+  if(!S.roi.show || chart.$sid!==S.roi.sid) return false;
+  const xs=chart.scales.x, ys=_chartYScale(chart);
+  if(!ys) return false;
+  const x1=xs.getPixelForValue(S.roi.x1), x2=xs.getPixelForValue(S.roi.x2);
+  const ya=ys.getPixelForValue(S.roi.y1), yb=ys.getPixelForValue(S.roi.y2);
+  return px>=Math.min(x1,x2) && px<=Math.max(x1,x2) &&
+         py>=Math.min(ya,yb) && py<=Math.max(ya,yb);
 }
 
 // 각 차트 캔버스에 드래그·우클릭·롱프레스 핸들러 부착 (rebuildCharts에서 호출)
@@ -1660,14 +1692,17 @@ function attachRoiDrag(canvas, sid){
   let longPressTimer=null, longPressFired=false;
 
   canvas.addEventListener('pointerdown',(e)=>{
+    // A-1: 드래그·선택 해제 등 모든 포인터 로직은 왼쪽 버튼에만 반응
+    //      (우클릭 button 2·휠클릭 button 1은 선택 상태를 절대 변경하지 않음)
+    if(e.button!==0) return;
     if(S.recording) return;                      // 수집 중에는 선택 불가
     if(!_chartXRange(sid)) return;               // 데이터 없으면 무시
     hideCtxMenu();
-    _roiDrag={sid, x0:e.offsetX, moved:false};
+    _roiDrag={sid, x0:e.offsetX, y0:e.offsetY, moved:false};
     longPressFired=false;
     canvas.setPointerCapture(e.pointerId);
     // 터치: 선택 영역 위 롱프레스(≈600ms) → 컨텍스트 메뉴
-    if(e.pointerType==='touch' && S.roi.show && _pxInRoi(S.charts[sid], e.offsetX)){
+    if(e.pointerType==='touch' && _pxInRoi(S.charts[sid], e.offsetX, e.offsetY)){
       longPressTimer=setTimeout(()=>{
         longPressFired=true; _roiDrag=null;
         showCtxMenu(sid, e.clientX, e.clientY);
@@ -1676,21 +1711,27 @@ function attachRoiDrag(canvas, sid){
   });
   canvas.addEventListener('pointermove',(e)=>{
     if(!_roiDrag||_roiDrag.sid!==sid) return;
-    if(Math.abs(e.offsetX-_roiDrag.x0)>4){ _roiDrag.moved=true; clearTimeout(longPressTimer); }
+    if(Math.abs(e.offsetX-_roiDrag.x0)>4 || Math.abs(e.offsetY-_roiDrag.y0)>4){
+      _roiDrag.moved=true; clearTimeout(longPressTimer);
+    }
     if(!_roiDrag.moved) return;
+    // B-3: 사각형 박스 — x·y 범위 동시 지정
     const chart=S.charts[sid];
-    const a=_pxToElapsed(chart,Math.min(_roiDrag.x0,e.offsetX));
-    const b=_pxToElapsed(chart,Math.max(_roiDrag.x0,e.offsetX));
-    if(a==null||b==null) return;
-    S.roi={show:true,t1:a,t2:b,sid};
+    const ys=_chartYScale(chart); if(!ys) return;
+    const xa=_pxToElapsed(chart,Math.min(_roiDrag.x0,e.offsetX));
+    const xb=_pxToElapsed(chart,Math.max(_roiDrag.x0,e.offsetX));
+    if(xa==null||xb==null) return;
+    const yv1=ys.getValueForPixel(_roiDrag.y0), yv2=ys.getValueForPixel(e.offsetY);
+    S.roi={show:true, sid, x1:xa, x2:xb, y1:Math.min(yv1,yv2), y2:Math.max(yv1,yv2)};
     _redrawAllCharts();
   });
   const finish=(e)=>{
     clearTimeout(longPressTimer);
     if(longPressFired) return;                   // 롱프레스 메뉴가 이미 뜸
     if(!_roiDrag||_roiDrag.sid!==sid) return;
+    if(e.button!==undefined && e.button!==0 && e.pointerType!=='touch') { _roiDrag=null; return; }  // A-1
     const moved=_roiDrag.moved; _roiDrag=null;
-    if(!moved){ clearRoi(); return; }            // 드래그 없는 클릭 → 선택 해제
+    if(!moved){ clearRoi(); return; }            // 왼쪽 버튼 클릭(드래그 없음) → 선택 해제
     showRoiHint(canvas);                         // 1회성 힌트: 우클릭 안내
   };
   canvas.addEventListener('pointerup',finish);
@@ -1699,33 +1740,43 @@ function attachRoiDrag(canvas, sid){
   // 접선 도구 (기능 6-B): 활성 시 포인터 추적
   canvas.addEventListener('pointermove',(e)=>{ if(!_roiDrag) tangentMove(sid, e.offsetX, e.offsetY); });
 
-  // 우클릭: 선택 영역 안 → ROI 메뉴 / 선택 없음 → 전체 구간 메뉴 / 선택 밖 → 브라우저 기본
+  // 우클릭: 박스 안 → ROI 메뉴 (선택 유지, A-1) / 박스 밖 → 선택 유지 + 브라우저 기본 메뉴
+  //         이 차트에 선택 없음 + 데이터 있음 → 전체 구간 메뉴 (E-2)
   canvas.addEventListener('contextmenu',(e)=>{
     if(S.recording) return;
-    if(S.roi.show){
-      if(_pxInRoi(S.charts[sid], e.offsetX)){
+    const hasRoiHere = S.roi.show && S.roi.sid===sid;
+    if(hasRoiHere){
+      if(_pxInRoi(S.charts[sid], e.offsetX, e.offsetY)){
         e.preventDefault();
         showCtxMenu(sid, e.clientX, e.clientY);
       }
-      return;  // 선택 밖 → 기본 메뉴
+      return;  // 박스 밖 → 선택 유지한 채 기본 메뉴
     }
-    if(_chartXRange(sid)){                       // 선택 없음 + 데이터 있음 → 전체 구간 메뉴 (E-2)
+    if(_chartXRange(sid)){
       e.preventDefault();
       showCtxMenu(sid, e.clientX, e.clientY, /*fullRange*/true);
     }
   });
 }
 
+// 화면 토스트 (안내 툴팁 — 무음 무동작 금지)
+let _toastTimer=null;
+function roiToast(msg, anchorEl){
+  const h=document.getElementById('roi-hint');
+  h.textContent=msg;
+  const r=(anchorEl||document.body).getBoundingClientRect ? (anchorEl||document.body).getBoundingClientRect() : {left:innerWidth/2,top:60,width:0};
+  h.style.left=(r.left+(r.width||0)/2)+'px';
+  h.style.top=(Math.max(10,r.top-6))+'px';
+  h.classList.add('show');
+  clearTimeout(_toastTimer);
+  _toastTimer=setTimeout(()=>h.classList.remove('show'), 2500);
+}
+
 // 1회성 힌트 툴팁
 function showRoiHint(canvas){
   if(S.roiHintShown) return;
   S.roiHintShown=true;
-  const h=document.getElementById('roi-hint');
-  const r=canvas.getBoundingClientRect();
-  h.style.left=(r.left+r.width/2)+'px';
-  h.style.top=(r.top+10)+'px';
-  h.classList.add('show');
-  setTimeout(()=>h.classList.remove('show'), 3000);
+  roiToast('우클릭으로 내보내기·분석', canvas);
 }
 
 function _redrawAllCharts(){
@@ -1733,42 +1784,56 @@ function _redrawAllCharts(){
 }
 
 // ── 차트 스코프 데이터 (E-2): 그 차트에 할당된 변수만, 토글 상태 무관 ──
-// 시간 모드: 해당 센서의 축 컬럼 (timestamp, elapsed_s, 축들)
-function chartScopeRows(sid, t1, t2){
+// box: null(전체) | {x1,x2}(x구간만 — 적분용) | {x1,x2,y1,y2}(사각 박스, B-3)
+// 시간 모드: 해당 센서의 축 컬럼. 박스의 y범위 밖 값은 빈 칸, 전 컬럼 빈 행은 제외.
+function chartScopeRows(sid, box){
   const cfg=S.chartCfg[sid];
+  const hasY = box && box.y1!==undefined && box.y1!==null;
   if(cfg && cfg.mode==='xy'){
-    // XY 모드: S.xyRecorded 기반, ROI 필터는 x변수 값 ∈ [t1,t2]
     let rows=(S.xyRecorded[sid]||[]);
-    if(t1!=null) rows=rows.filter(r=>r.x>=t1 && r.x<=t2);
+    if(box) rows=rows.filter(r=>r.x>=box.x1 && r.x<=box.x2);
+    if(hasY) rows=rows.filter(r=>r.y>=box.y1 && r.y<=box.y2);
     return rows.map(r=>({elapsed_s:r.t, [cfg.xLabel]:r.x, [cfg.yLabel]:r.y}));
   }
   const sensor=SENSORS.find(s=>s.id===sid);
+  const off=_offSet(sid);   // B-2: 꺼진 성분 컬럼은 내보내기에서 제외
   let rows=S.recorded.filter(r=>r.sensor===(sensor?.name??sid));
-  if(t1!=null) rows=rows.filter(r=>r.elapsed_s>=t1 && r.elapsed_s<=t2);
-  return rows.map(r=>{
+  if(box) rows=rows.filter(r=>r.elapsed_s>=box.x1 && r.elapsed_s<=box.x2);
+  const out=[];
+  rows.forEach(r=>{
     const o={timestamp:r.timestamp, elapsed_s:r.elapsed_s};
-    sensor?.axes.forEach(ax=>o[ax]=r[ax]);
-    return o;
+    let any=false;
+    sensor?.axes.forEach((ax,i)=>{
+      if(off.has(i)) return;
+      const v=r[ax];
+      if(hasY && typeof v==='number' && (v<box.y1||v>box.y2)){ o[ax]=''; }   // 박스 밖 → 빈 칸
+      else { o[ax]=v; if(v!==''&&v!==undefined) any=true; }
+    });
+    if(any) out.push(o);
   });
+  return out;
 }
 
-function _roiRows(){  // 우클릭 메뉴 요약용 — ROI를 잡은 차트 스코프의 행 수
+function _roiBox(){ return S.roi.show ? {x1:S.roi.x1,x2:S.roi.x2,y1:S.roi.y1,y2:S.roi.y2} : null; }
+function _roiRows(){  // 우클릭 메뉴 요약용 — ROI를 잡은 차트 스코프의 행
   const sid=S.roi.sid;
-  return sid ? chartScopeRows(sid, S.roi.t1, S.roi.t2) : [];
+  return sid ? chartScopeRows(sid, _roiBox()) : [];
 }
 
-// 차트 컨텍스트 내보내기 (E-2)
+// 차트 컨텍스트 내보내기 (E-2, B-3: 박스 내부 점만 — 시리즈별 컬럼, 박스 밖 값은 빈 칸)
 function exportChartScope(sid, useRoi, xlsx){
   const cfg=S.chartCfg[sid];
   const isXY=cfg && cfg.mode==='xy';
-  const t1=useRoi?S.roi.t1:null, t2=useRoi?S.roi.t2:null;
-  const rows=chartScopeRows(sid, t1, t2);
+  const rows=chartScopeRows(sid, useRoi?_roiBox():null);
   if(!rows.length){log('내보낼 데이터가 없습니다.','err');return;}
   const extra={
     export_scope:'chart',
     chart_vars: isXY ? `x=${cfg.xLabel}, y=${cfg.yLabel}` : (SENSORS.find(s=>s.id===sid)?.name??sid),
   };
-  if(useRoi){ extra.roi_start_s=S.roi.t1; extra.roi_end_s=S.roi.t2; }
+  if(useRoi){
+    extra.roi_x=`[${sig(S.roi.x1)}, ${sig(S.roi.x2)}]`;
+    extra.roi_y=`[${sig(S.roi.y1)}, ${sig(S.roi.y2)}]`;
+  }
   const base=isXY ? `${cfg.xLabel}-${cfg.yLabel}` : sid;
   const name=`${base}${useRoi?'_roi':''}_${ts()}`.replace(/[^\w가-힣.\-]/g,'_');
   exportData(rows, name, xlsx, extra);
@@ -1780,19 +1845,41 @@ function hideCtxMenu(){
   const m=document.getElementById('ctx-menu');
   if(m) m.classList.remove('show');
 }
+// 범용 메뉴 표시 (ROI 메뉴·축 변수 메뉴 공용 — 동일 토큰)
+function _showMenuAt(head, items, cx, cy){
+  const m=document.getElementById('ctx-menu');
+  m.innerHTML=(head?`<div class="cm-head">${esc(head)}</div>`:'')+
+    items.map((it,i)=>it.group
+      ? `<div class="cm-group">${esc(it.t)}</div>`
+      : `<div class="cm-item" data-i="${i}">${esc(it.t)}</div>`).join('');
+  m.querySelectorAll('.cm-item').forEach(el=>{
+    // A-2: stopPropagation — 항목 클릭 버블링이 방금 연 팝오버를 닫는 것 방지
+    el.onclick=(e)=>{ e.stopPropagation(); hideCtxMenu(); const it=items[+el.dataset.i]; it.f&&it.f(); };
+  });
+  m.classList.add('show');
+  const pad=8;
+  m.style.left='0px'; m.style.top='0px';
+  const rect=m.getBoundingClientRect();
+  let x=cx, y=cy;
+  if(x+rect.width>window.innerWidth-pad)  x=window.innerWidth-rect.width-pad;
+  if(y+rect.height>window.innerHeight-pad) y=window.innerHeight-rect.height-pad;
+  m.style.left=Math.max(pad,x)+'px'; m.style.top=Math.max(pad,y)+'px';
+}
+
 function showCtxMenu(sid, cx, cy, fullRange=false){
   const m=document.getElementById('ctx-menu');
   const useRoi=!fullRange && S.roi.show;
   let head, items=[];
   if(useRoi){
-    const n=_roiRows().length;
-    head=`${S.roi.t1.toFixed(1)} s ~ ${S.roi.t2.toFixed(1)} s · ${n}개 샘플`;
+    const n=_roiPointCount(sid);
+    // B-3: "x: 2.1~5.3 s · y: −0.4~0.8 · n점" 형식
+    head=`x: ${sig(S.roi.x1,3)}~${sig(S.roi.x2,3)} · y: ${sig(S.roi.y1,3)}~${sig(S.roi.y2,3)} · ${n}점`;
     items=[
-      {t:'선택 구간 CSV 내보내기',  f:()=>exportChartScope(sid,true,false)},
-      {t:'선택 구간 XLSX 내보내기', f:()=>exportChartScope(sid,true,true)},
-      {t:'면적(적분) 계산',         f:()=>anaIntegral(sid)},
-      {t:'구간 피팅',               f:()=>anaFitOpen(sid)},
-      {t:'선택 해제',               f:()=>clearRoi()},
+      {t:'선택 영역 CSV 내보내기',        f:()=>exportChartScope(sid,true,false)},
+      {t:'선택 영역 XLSX 내보내기',       f:()=>exportChartScope(sid,true,true)},
+      {t:'면적(적분) 계산 — x구간 기준',  f:()=>anaIntegral(sid)},   // B-3: 적분은 y범위 무시
+      {t:'영역 피팅',                     f:()=>anaFitOpen(sid)},
+      {t:'선택 해제',                     f:()=>clearRoi()},
     ];
   } else {
     head='전체 구간 (이 차트)';
@@ -1801,20 +1888,89 @@ function showCtxMenu(sid, cx, cy, fullRange=false){
       {t:'전체 구간 XLSX 내보내기(이 차트)', f:()=>exportChartScope(sid,false,true)},
     ];
   }
-  m.innerHTML=`<div class="cm-head">${esc(head)}</div>`+
-    items.map((it,i)=>`<div class="cm-item" data-i="${i}">${esc(it.t)}</div>`).join('');
-  m.querySelectorAll('.cm-item').forEach(el=>{
-    el.onclick=()=>{ hideCtxMenu(); items[+el.dataset.i].f(); };
+  _showMenuAt(head, items, cx, cy);
+}
+
+// ── B-1: 축 클릭 변수 선택 (SPARKvue 방식) ──
+function updateAxisChips(sid){
+  const cfg=S.chartCfg[sid];
+  const isXY=cfg&&cfg.mode==='xy';
+  const s=SENSORS.find(x=>x.id===sid);
+  const xc=document.getElementById('axx-'+sid);
+  const yc=document.getElementById('axy-'+sid);
+  if(xc) xc.textContent = isXY ? `${cfg.xLabel}${cfg.xUnit?` (${cfg.xUnit})`:''}` : '시간 (s)';
+  if(yc) yc.textContent = isXY ? `${cfg.yLabel}${cfg.yUnit?` (${cfg.yUnit})`:''}` : `${s.name}${s.unit?` (${s.unit})`:''}`;
+}
+function _firstEnabledAxis(sid){
+  const s=SENSORS.find(x=>x.id===sid);
+  const off=S.seriesOff[sid]||new Set();
+  for(let i=0;i<s.axes.length;i++) if(!off.has(i)) return i;
+  return 0;
+}
+function axisSelectX(sid, v){
+  if(v==='time'){ xyReset(sid); updateAxisChips(sid); return; }
+  const x=_parseVar(v);
+  let y;
+  const cfg=S.chartCfg[sid];
+  if(cfg&&cfg.mode==='xy') y=cfg.y;
+  else {
+    const s=SENSORS.find(t=>t.id===sid);
+    const yi=_firstEnabledAxis(sid);
+    y={sid, axis:yi, label:`${s.name}·${s.axes[yi]}`, unit:s.unit||''};
+  }
+  S.chartCfg[sid]={mode:'xy', x, y, xLabel:x.label, yLabel:y.label, xUnit:x.unit, yUnit:y.unit};
+  S.xyRecorded[sid]=[];
+  clearRoi();
+  createChart(SENSORS.find(t=>t.id===sid));
+  log(`XY 설정: x=${x.label}, y=${y.label}`,'sys');
+}
+function axisSelectY(sid, v){
+  const y=_parseVar(v);
+  const cfg=S.chartCfg[sid];
+  if(!cfg||cfg.mode!=='xy') return;           // 시간 모드의 y는 시리즈 토글로 제어 (B-2)
+  S.chartCfg[sid]={...cfg, y, yLabel:y.label, yUnit:y.unit};
+  S.xyRecorded[sid]=[];
+  clearRoi();
+  createChart(SENSORS.find(t=>t.id===sid));
+  log(`XY y축 변경: ${y.label}`,'sys');
+}
+function axisMenuX(sid, ev){
+  ev.stopPropagation();
+  if(S.recording){ roiToast('수집 중에는 변경할 수 없습니다', ev.currentTarget); return; }
+  const cfg=S.chartCfg[sid];
+  const cur = cfg&&cfg.mode==='xy' ? `${cfg.x.sid}:${cfg.x.axis}` : 'time';
+  const items=[{group:true,t:'시간'},
+    {t:`시간 (s)${cur==='time'?'  ✓':''}`, f:()=>axisSelectX(sid,'time')},
+    {group:true,t:'센서 변수'}];
+  _xyVarOptions(false).forEach(o=>{
+    items.push({t:`${o.label}${cur===o.v?'  ✓':''}`, f:()=>axisSelectX(sid,o.v)});
   });
-  m.classList.add('show');
-  // 화면 가장자리 보정
-  const pad=8;
-  m.style.left='0px'; m.style.top='0px';
-  const rect=m.getBoundingClientRect();
-  let x=cx, y=cy;
-  if(x+rect.width>window.innerWidth-pad)  x=window.innerWidth-rect.width-pad;
-  if(y+rect.height>window.innerHeight-pad) y=window.innerHeight-rect.height-pad;
-  m.style.left=Math.max(pad,x)+'px'; m.style.top=Math.max(pad,y)+'px';
+  const r=ev.currentTarget.getBoundingClientRect();
+  _showMenuAt('x축 변수', items, r.left, r.top-8-items.length*36);
+}
+function axisMenuY(sid, ev){
+  ev.stopPropagation();
+  if(S.recording){ roiToast('수집 중에는 변경할 수 없습니다', ev.currentTarget); return; }
+  const cfg=S.chartCfg[sid];
+  const isXY=cfg&&cfg.mode==='xy';
+  const items=[];
+  if(isXY){
+    const cur=`${cfg.y.sid}:${cfg.y.axis}`;
+    items.push({group:true,t:'y축 변수'});
+    _xyVarOptions(false).forEach(o=>{
+      items.push({t:`${o.label}${cur===o.v?'  ✓':''}`, f:()=>axisSelectY(sid,o.v)});
+    });
+  } else {
+    // 시간 모드: 시리즈(성분) 토글 목록 (B-2)
+    const s=SENSORS.find(t=>t.id===sid);
+    const off=S.seriesOff[sid]||new Set();
+    items.push({group:true,t:'표시 성분 (클릭=켜기/끄기)'});
+    s.axes.forEach((ax,i)=>{
+      items.push({t:`${off.has(i)?'☐':'☑'} ${ax}`, f:()=>toggleSeries(sid,i)});
+    });
+  }
+  const r=ev.currentTarget.getBoundingClientRect();
+  _showMenuAt('y축', items, r.right+6, r.top);
 }
 document.addEventListener('click',(e)=>{
   const m=document.getElementById('ctx-menu');
