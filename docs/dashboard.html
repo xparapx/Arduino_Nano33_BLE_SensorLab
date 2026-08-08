@@ -229,8 +229,9 @@ header{display:flex;align-items:center;justify-content:space-between;padding:0 1
   background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r);
   box-shadow:0 10px 34px var(--shadow);overflow:hidden;padding:4px 0;}
 .ctx-menu.show{display:block;}
-.ctx-menu .cm-head{padding:7px 14px;font-size:11px;color:var(--text3);
-  font-family:'JetBrains Mono','Fira Code',monospace;border-bottom:1px solid var(--border);}
+.ctx-menu .cm-head{padding:7px 14px;font-size:10.5px;color:var(--text3);
+  font-family:inherit;font-variant-numeric:tabular-nums;   /* 항목과 동일 서체, 크기만 축소 */
+  border-bottom:1px solid var(--border);white-space:nowrap;}
 .ctx-menu .cm-item{height:36px;display:flex;align-items:center;padding:0 14px;
   font-size:12.5px;color:var(--text);cursor:pointer;transition:background .12s;}
 .ctx-menu .cm-item:hover{background:var(--bg3);}
@@ -2182,10 +2183,8 @@ function showCtxMenu(sid, cx, cy, fullRange=false){
   const useRoi=!fullRange && S.roi.show;
   let head, items=[];
   if(useRoi){
-    const n=_roiPointCount(sid);
-    // B-3: "x: 2.1~5.3 s · y: −0.4~0.8 · n점" 형식
-    const gY2=_graph(sid)&&_graph(sid).y2;
-    head=`x: ${sig(S.roi.x1,3)}~${sig(S.roi.x2,3)} · y: ${sig(S.roi.y1,3)}~${sig(S.roi.y2,3)} · ${n}점${gY2?' · y범위는 주 y축 기준':''}`;
+    // 선택 범위만 간결 표기: x: [x₁, x₂], y: [y₁, y₂]
+    head=`x: [${sig(S.roi.x1,3)}, ${sig(S.roi.x2,3)}],  y: [${sig(S.roi.y1,3)}, ${sig(S.roi.y2,3)}]`;
     items=[
       {t:'선택 영역 CSV 내보내기',        f:()=>exportChartScope(sid,true,false)},
       {t:'선택 영역 XLSX 내보내기',       f:()=>exportChartScope(sid,true,true)},
