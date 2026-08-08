@@ -138,6 +138,12 @@ header{display:flex;align-items:center;justify-content:space-between;padding:0 1
 /* ── 샘플레이트 ── */
 .srate-wrap{display:flex;flex-direction:column;gap:6px;}
 .srate-row-lbl{font-size:10px;color:var(--text3);margin-bottom:3px;font-weight:500;}
+.lt-lbl{display:flex;align-items:center;gap:4px;}
+.lt-reset{margin-left:auto;width:18px;height:18px;border-radius:5px;border:1px solid var(--border);
+  background:var(--bg3);color:var(--text3);cursor:pointer;display:flex;align-items:center;
+  justify-content:center;padding:0;transition:all .14s;}
+.lt-reset svg{width:11px;height:11px;}
+.lt-reset:hover{color:var(--text);border-color:var(--border2);}
 .srate-grid{display:grid;gap:4px;}
 .srate-grid.rt{grid-template-columns:repeat(5,1fr);}
 .srate-grid.lt{grid-template-columns:repeat(5,1fr);}
@@ -172,12 +178,27 @@ header{display:flex;align-items:center;justify-content:space-between;padding:0 1
 
 /* ── 차트 영역 ── */
 .chart-area{flex:1;overflow-y:auto;padding:14px;background:var(--bg);}
-.chart-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
-.chart-grid.single{grid-template-columns:1fr;}
-.chart-empty{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--text3);gap:12px;text-align:center;}
-.chart-empty-icon{font-size:40px;opacity:.2;}
-.chart-empty h3{font-size:15px;color:var(--text2);font-weight:600;}
-.chart-empty p{font-size:12px;line-height:1.7;max-width:260px;}
+/* r4-D 워크스페이스 */
+.workspace{display:flex;flex-direction:column;gap:12px;}
+.ws-row{display:grid;grid-template-columns:1fr;gap:12px;}
+.ws-row.two{grid-template-columns:1fr 1fr;}          /* 1행 2열, 1:1 폭 스냅 */
+.g-hdr{cursor:grab;user-select:none;touch-action:none;}
+.g-hdr:active{cursor:grabbing;}
+.g-hdr .g-btns{display:flex;gap:5px;align-items:center;}
+.g-hdr .g-btn{width:24px;height:24px;border-radius:6px;border:1px solid var(--border);
+  background:var(--bg3);color:var(--text2);cursor:pointer;font-size:13px;line-height:1;
+  display:flex;align-items:center;justify-content:center;padding:0;}
+.g-hdr .g-btn:hover{color:var(--text);border-color:var(--border2);}
+/* r4-B: 축 칩은 캔버스 밖 전용 레이아웃 영역 — 오버레이 금지, 겹침 0 */
+.g-body{display:grid;grid-template-columns:36px 1fr;align-items:stretch;}
+.g-body.hasy2{grid-template-columns:36px 1fr 36px;}
+.g-ygut,.g-y2gut{display:flex;align-items:center;justify-content:center;padding:4px 2px;}
+.g-plot{position:relative;padding:8px 6px 2px;min-width:0;height:250px;}
+.g-xrow{display:flex;justify-content:center;padding:2px 0 8px;}
+.chart-card.drop-hint{outline:2px dashed var(--accent);outline-offset:-2px;}
+.dock-ghost{position:fixed;z-index:300;pointer-events:none;background:var(--bg3);
+  border:1px solid var(--accent);border-radius:10px;opacity:.75;padding:9px 16px;
+  font-size:12px;font-weight:600;color:var(--text);box-shadow:0 10px 30px var(--shadow);}
 .chart-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);overflow:hidden;box-shadow:0 2px 8px var(--shadow);}
 .chart-hdr{display:flex;align-items:center;justify-content:space-between;padding:9px 13px;border-bottom:1px solid var(--border);}
 .chart-title-row{display:flex;align-items:center;gap:8px;}
@@ -251,13 +272,13 @@ body.recording .ana-toolbar button{opacity:.4;cursor:not-allowed;}
 .st-item.off{text-decoration:line-through;opacity:.5;}
 
 /* ── B-1: 축 클릭 변수 선택 칩 (SPARKvue 방식) ── */
-.ax-chip{position:absolute;z-index:6;font-size:10px;font-weight:600;font-family:inherit;
-  padding:3px 9px;border-radius:7px;border:1px solid var(--border2);
-  background:color-mix(in srgb, var(--bg2) 85%, transparent);backdrop-filter:blur(4px);
-  color:var(--text2);cursor:pointer;transition:all .14s;white-space:nowrap;}
+.ax-chip{font-size:10.5px;font-weight:600;font-family:inherit;
+  min-height:32px;min-width:32px;                    /* r4-B: 히트 영역 32px 보장 */
+  padding:4px 10px;border-radius:7px;border:1px solid var(--border2);
+  background:var(--bg3);color:var(--text2);cursor:pointer;transition:all .14s;
+  white-space:nowrap;display:inline-flex;align-items:center;justify-content:center;}
 .ax-chip:hover{color:var(--text);border-color:var(--accent);background:rgba(61,126,255,.1);}
-.ax-x{bottom:4px;left:50%;transform:translateX(-50%);}
-.ax-y{left:4px;top:6px;}  /* QA r3-2: 회전 금지 — 가로 텍스트, 좌상단 모서리 */
+.ax-yv{writing-mode:vertical-rl;padding:10px 4px;}   /* r4-B: 시계방향 90°, 위→아래로 읽힘 */
 body.recording .ax-chip{opacity:.4;cursor:not-allowed;}
 .ctx-menu .cm-group{padding:6px 14px 3px;font-size:10px;font-weight:700;color:var(--text3);
   letter-spacing:.6px;text-transform:uppercase;}
@@ -482,7 +503,11 @@ body.light .code-block{color:#3a4a6b;background:#f8f9fc;}
       </div>
       <div class="divider"></div>
       <div>
-        <div class="srate-row-lbl">롱텀 수집 간격 <span style="color:var(--purple);font-size:9px;">(수집 후 파일저장)</span></div>
+        <div class="srate-row-lbl lt-lbl">롱텀 수집 간격 <span style="color:var(--purple);font-size:9px;">(수집 후 파일저장)</span>
+          <button class="lt-reset" id="lt-reset" title="롱텀 간격 해제 — 실시간 모드로 복귀" onclick="resetLongTerm()" style="display:none;">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M3.5 8a4.5 4.5 0 1 1 1.3 3.2"/><path d="M3.5 11.5V8h3.5"/></svg>
+          </button>
+        </div>
         <div class="srate-grid lt" id="sr-lt">
           <div class="srate-btn" data-min="1"   onclick="setSR(this,'lt')">1<span class="srate-unit">분</span></div>
           <div class="srate-btn" data-min="5"   onclick="setSR(this,'lt')">5<span class="srate-unit">분</span></div>
@@ -563,12 +588,8 @@ body.light .code-block{color:#3a4a6b;background:#f8f9fc;}
 <!-- ── 차트 + 로그 ── -->
 <div style="flex:1;display:flex;flex-direction:column;overflow:hidden;">
   <div class="chart-area" id="chart-area">
-    <div class="chart-empty" id="chart-empty">
-      <div class="chart-empty-icon">📡</div>
-      <h3>센서를 활성화하세요</h3>
-      <p>좌측 패널에서 센서를 선택하면<br>실시간 차트가 표시됩니다.</p>
-    </div>
-    <div class="chart-grid" id="chart-grid" style="display:none;"></div>
+    <!-- r4-D: 그래프 워크스페이스 — 기본 1개, ⊕로 추가(최대 4), 헤더 드래그 도킹(1행 2열) -->
+    <div class="workspace" id="workspace"></div>
   </div>
   <div class="log-panel" id="log-panel">
     <div class="log-resize" id="log-resize" title="드래그: 높이 조절 · 더블클릭: 기본 높이"></div>
@@ -723,6 +744,7 @@ function buildSensorList(){
 function toggleSensor(id){
   S.active.has(id)?S.active.delete(id):S.active.add(id);
   document.getElementById('si-'+id).classList.toggle('active');
+  retargetGraphsToActive();
   sendSensorCfg();
 }
 function toggleAll(on){
@@ -730,6 +752,7 @@ function toggleAll(on){
     on?S.active.add(s.id):S.active.delete(s.id);
     document.getElementById('si-'+s.id).classList.toggle('active',on);
   });
+  retargetGraphsToActive();
   sendSensorCfg();
 }
 
@@ -745,6 +768,7 @@ function setSR(el, type){
     S.longTermMin = 0;
     S.bufSize = Math.max(20, Math.round(S.hz*10));
     document.getElementById('buf-lbl').textContent=`버퍼: 10s × ${S.hz}Hz = ${S.bufSize}pt`;
+    const lr=document.getElementById('lt-reset'); if(lr) lr.style.display='none';
   } else {
     // 롱텀: 실시간 선택 유지하되 롱텀 간격만 선택
     document.querySelectorAll('#sr-lt .srate-btn').forEach(b=>b.classList.remove('lt-active'));
@@ -752,10 +776,20 @@ function setSR(el, type){
     S.longTermMin = parseInt(el.dataset.min);
     document.getElementById('buf-lbl').textContent=
       `롱텀 간격: ${S.longTermMin}분마다 파일 저장`;
+    const lr=document.getElementById('lt-reset'); if(lr) lr.style.display='';   // 리셋 아이콘 노출
   }
   trimAllBufs();
   if(S.connected||S.demoMode) sendCmd('RATE:'+S.hz);
 }
+// 롱텀 수집 간격 해제 → 초기(실시간 전용) 상태 복귀
+function resetLongTerm(){
+  document.querySelectorAll('#sr-lt .srate-btn').forEach(b=>b.classList.remove('lt-active'));
+  S.longTermMin=0;
+  document.getElementById('buf-lbl').textContent=`버퍼: 10s × ${S.hz}Hz = ${S.bufSize}pt`;
+  const lr=document.getElementById('lt-reset'); if(lr) lr.style.display='none';
+  log('롱텀 수집 간격 해제 — 실시간 모드','sys');
+}
+
 function trimAllBufs(){
   Object.keys(S.chartData).forEach(id=>{
     const cd=S.chartData[id];
@@ -803,9 +837,11 @@ function newGid(){ return 'g'+(_gseq++); }
 function _gridC(){ return S.theme==='dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.08)'; }
 function applyThemeToCharts(){
   Object.values(S.charts).forEach(ch=>{
-    Object.values(ch.options.scales).forEach(sc=>{
+    // 주의: ch.options.scales(리졸브된 프록시)에 대입하면 Chart.js 내부 리졸버가 깨진다
+    //       (t.startsWith TypeError) — 반드시 원본 설정(ch.config.options)을 수정할 것
+    const scales=(ch.config && ch.config.options && ch.config.options.scales) || {};
+    Object.values(scales).forEach(sc=>{
       if(sc.grid && sc.grid.drawOnChartArea!==false) sc.grid.color=_gridC();
-      sc.border=sc.border||{}; sc.border.color=_gridC();
     });
     ch.update();
   });
@@ -913,22 +949,25 @@ function renderWorkspace(){
     if(el){ keep[g.gid]=el; el.remove(); }
   });
   ws.innerHTML='';
+  const fresh=[];
   S.layoutRows.forEach(row=>{
     const rd=document.createElement('div');
     rd.className='ws-row'+(row.length>1?' two':'');
     row.forEach(gid=>{
       const g=_graph(gid); if(!g) return;
       let el=keep[gid];
-      if(!el){
-        el=buildGraphCard(g);
-        rd.appendChild(el);
-        createGraphChart(g);
-        const cv=document.getElementById('cv-'+gid);
-        if(cv && !cv.$roiAttached){ attachRoiDrag(cv, gid); cv.$roiAttached=true; }
-        attachDockDrag(document.getElementById('gh-'+gid), gid);
-      } else rd.appendChild(el);
+      if(!el){ el=buildGraphCard(g); fresh.push(g); }
+      rd.appendChild(el);
     });
     ws.appendChild(rd);
+  });
+  // 주의: 차트 생성은 카드가 문서(document)에 붙은 뒤에 해야 한다 —
+  // 붙기 전에 호출하면 getElementById('cv-…')가 null이라 차트가 만들어지지 않음
+  fresh.forEach(g=>{
+    createGraphChart(g);
+    const cv=document.getElementById('cv-'+g.gid);
+    if(cv && !cv.$roiAttached){ attachRoiDrag(cv, g.gid); cv.$roiAttached=true; }
+    attachDockDrag(document.getElementById('gh-'+g.gid), g.gid);
   });
   // ✕ 버튼: 마지막 1개 보호
   S.graphs.forEach(g=>{
@@ -1162,6 +1201,26 @@ function undock(gid){
   S.layoutRows=S.layoutRows.map(r=>r.filter(x=>x!==gid)).filter(r=>r.length);
   S.layoutRows.splice(Math.min(idx+1,S.layoutRows.length), 0, [gid]);
   renderWorkspace();
+}
+
+// ── 센서 활성화 시: 데이터 없는 그래프가 비활성 센서를 가리키면 활성 센서로 재지정 ──
+// (센서를 켰는데 그래프가 반응하지 않는 것처럼 보이는 문제 방지 — 기록이 있으면 건드리지 않음)
+function retargetGraphsToActive(){
+  if(!S.active.size) return;
+  S.graphs.forEach(g=>{
+    const rec=S.graphRec[g.gid]||[[],[]];
+    const hasData=rec[0].length>0 || rec[1].length>0;
+    if(hasData) return;
+    const yv=_parseVar(g.y);
+    if(S.active.has(yv.sid)) return;
+    const s=SENSORS.find(t=>S.active.has(t.id));
+    if(!s) return;
+    g.y=`${s.id}:0`;
+    if(g.y2 && !S.active.has(_parseVar(g.y2).sid)) g.y2=null;
+    if(g.x!=='time' && !S.active.has(_parseVar(g.x).sid)) g.x='time';
+    createGraphChart(g);
+  });
+  saveWorkspace();
 }
 
 // ── 수집 시작 검증: 그래프 변수의 센서 토글이 꺼져 있으면 차단 ──
@@ -2254,6 +2313,8 @@ async function connectSerial(){
     S.connected=true; updateConnUI(true);
     log(`포트 연결됨 (${baud} baud)`,'sys');
     startReadLoop(); sendSensorCfg();
+    // r4-C: 보드가 이미 부팅된 상태면 부팅 배너가 다시 오지 않으므로 ID를 직접 조회
+    setTimeout(()=>{ if(S.connected && S.connMode==='usb') sendCmd('ID?'); }, 400);
   }catch(e){if(e.name!=='NotFoundError')log('연결 실패: '+e.message,'err');}
 }
 async function disconnectSerial(){
@@ -2287,7 +2348,8 @@ function processLine(line){
     log(line.slice(1).trim(),'sys');
     return;
   }
-  log(line,'rx');
+  // 센서 데이터 라인은 수집 중에만 로그에 출력 (수집 전에는 파싱만 — 배지 갱신용)
+  if(S.recording) log(line,'rx');
   const parts=line.split(','); if(parts.length<2)return;
   const id=parts[0].toLowerCase();
   if(!S.active.has(id))return;
@@ -2380,9 +2442,12 @@ function updateMyBoardBadge(){
     el.innerHTML=`내 보드: <b>BLE-${esc(S.myBoardId)}</b>`;
   } else el.style.display='none';
 }
-// 부팅/시스템 메시지에서 DEVICE ID 추출 ("# DEVICE ID : A3F7" / "# ID: A3F7 / BLE-A3F7")
+// 부팅/시스템 메시지에서 DEVICE ID 추출
+// ("# DEVICE ID : A3F7" / "# ID: A3F7 / BLE-A3F7" / "# BLE 장치명: BLE-A3F7" 등)
 function extractBoardId(line){
-  const m=line.match(/DEVICE ID\s*:\s*([0-9A-F]{4})/i) || line.match(/#\s*ID:\s*([0-9A-F]{4})/i);
+  const m=line.match(/DEVICE ID\s*:\s*([0-9A-F]{4})/i)
+       || line.match(/#\s*ID:\s*([0-9A-F]{4})/i)
+       || line.match(/BLE-([0-9A-F]{4})\b/);
   if(m) setMyBoardId(m[1]);
 }
 
@@ -2541,6 +2606,7 @@ function runDemo(){
   ['imu_acc','imu_gyr','temp_hum','mic'].forEach(id=>{
     S.active.add(id); document.getElementById('si-'+id).classList.add('active');
   });
+  retargetGraphsToActive();
   document.getElementById('conn-dot').classList.add('on');
   document.getElementById('conn-label').textContent='데모 모드';
   document.getElementById('rec-btn').disabled=false;
