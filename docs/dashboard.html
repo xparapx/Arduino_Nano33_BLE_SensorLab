@@ -138,6 +138,12 @@ header{display:flex;align-items:center;justify-content:space-between;padding:0 1
 /* ── 샘플레이트 ── */
 .srate-wrap{display:flex;flex-direction:column;gap:6px;}
 .srate-row-lbl{font-size:10px;color:var(--text3);margin-bottom:3px;font-weight:500;}
+.lt-lbl{display:flex;align-items:center;gap:4px;}
+.lt-reset{margin-left:auto;width:18px;height:18px;border-radius:5px;border:1px solid var(--border);
+  background:var(--bg3);color:var(--text3);cursor:pointer;display:flex;align-items:center;
+  justify-content:center;padding:0;transition:all .14s;}
+.lt-reset svg{width:11px;height:11px;}
+.lt-reset:hover{color:var(--text);border-color:var(--border2);}
 .srate-grid{display:grid;gap:4px;}
 .srate-grid.rt{grid-template-columns:repeat(5,1fr);}
 .srate-grid.lt{grid-template-columns:repeat(5,1fr);}
@@ -497,7 +503,11 @@ body.light .code-block{color:#3a4a6b;background:#f8f9fc;}
       </div>
       <div class="divider"></div>
       <div>
-        <div class="srate-row-lbl">롱텀 수집 간격 <span style="color:var(--purple);font-size:9px;">(수집 후 파일저장)</span></div>
+        <div class="srate-row-lbl lt-lbl">롱텀 수집 간격 <span style="color:var(--purple);font-size:9px;">(수집 후 파일저장)</span>
+          <button class="lt-reset" id="lt-reset" title="롱텀 간격 해제 — 실시간 모드로 복귀" onclick="resetLongTerm()" style="display:none;">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M3.5 8a4.5 4.5 0 1 1 1.3 3.2"/><path d="M3.5 11.5V8h3.5"/></svg>
+          </button>
+        </div>
         <div class="srate-grid lt" id="sr-lt">
           <div class="srate-btn" data-min="1"   onclick="setSR(this,'lt')">1<span class="srate-unit">분</span></div>
           <div class="srate-btn" data-min="5"   onclick="setSR(this,'lt')">5<span class="srate-unit">분</span></div>
@@ -758,6 +768,7 @@ function setSR(el, type){
     S.longTermMin = 0;
     S.bufSize = Math.max(20, Math.round(S.hz*10));
     document.getElementById('buf-lbl').textContent=`버퍼: 10s × ${S.hz}Hz = ${S.bufSize}pt`;
+    const lr=document.getElementById('lt-reset'); if(lr) lr.style.display='none';
   } else {
     // 롱텀: 실시간 선택 유지하되 롱텀 간격만 선택
     document.querySelectorAll('#sr-lt .srate-btn').forEach(b=>b.classList.remove('lt-active'));
@@ -765,10 +776,20 @@ function setSR(el, type){
     S.longTermMin = parseInt(el.dataset.min);
     document.getElementById('buf-lbl').textContent=
       `롱텀 간격: ${S.longTermMin}분마다 파일 저장`;
+    const lr=document.getElementById('lt-reset'); if(lr) lr.style.display='';   // 리셋 아이콘 노출
   }
   trimAllBufs();
   if(S.connected||S.demoMode) sendCmd('RATE:'+S.hz);
 }
+// 롱텀 수집 간격 해제 → 초기(실시간 전용) 상태 복귀
+function resetLongTerm(){
+  document.querySelectorAll('#sr-lt .srate-btn').forEach(b=>b.classList.remove('lt-active'));
+  S.longTermMin=0;
+  document.getElementById('buf-lbl').textContent=`버퍼: 10s × ${S.hz}Hz = ${S.bufSize}pt`;
+  const lr=document.getElementById('lt-reset'); if(lr) lr.style.display='none';
+  log('롱텀 수집 간격 해제 — 실시간 모드','sys');
+}
+
 function trimAllBufs(){
   Object.keys(S.chartData).forEach(id=>{
     const cd=S.chartData[id];
@@ -816,9 +837,11 @@ function newGid(){ return 'g'+(_gseq++); }
 function _gridC(){ return S.theme==='dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.08)'; }
 function applyThemeToCharts(){
   Object.values(S.charts).forEach(ch=>{
-    Object.values(ch.options.scales).forEach(sc=>{
+    // 주의: ch.options.scales(리졸브된 프록시)에 대입하면 Chart.js 내부 리졸버가 깨진다
+    //       (t.startsWith TypeError) — 반드시 원본 설정(ch.config.options)을 수정할 것
+    const scales=(ch.config && ch.config.options && ch.config.options.scales) || {};
+    Object.values(scales).forEach(sc=>{
       if(sc.grid && sc.grid.drawOnChartArea!==false) sc.grid.color=_gridC();
-      sc.border=sc.border||{}; sc.border.color=_gridC();
     });
     ch.update();
   });
@@ -2325,7 +2348,8 @@ function processLine(line){
     log(line.slice(1).trim(),'sys');
     return;
   }
-  log(line,'rx');
+  // 센서 데이터 라인은 수집 중에만 로그에 출력 (수집 전에는 파싱만 — 배지 갱신용)
+  if(S.recording) log(line,'rx');
   const parts=line.split(','); if(parts.length<2)return;
   const id=parts[0].toLowerCase();
   if(!S.active.has(id))return;
