@@ -283,23 +283,11 @@ body.light .code-block{color:#3a4a6b;background:#f8f9fc;}
 .ide-info a:hover{text-decoration:underline;}
 .xs{font-size:10px;color:var(--text3);}
 
-/* 저장된 보드 칩 */
-.chip-list{display:flex;flex-wrap:wrap;gap:5px;}
-.bchip{display:inline-flex;align-items:center;gap:6px;padding:5px 8px 5px 10px;
-  border-radius:20px;border:1px solid rgba(167,139,250,.35);background:rgba(167,139,250,.08);
-  color:var(--text);font-size:11px;font-weight:600;cursor:pointer;transition:all .13s;user-select:none;}
-.bchip:hover{background:rgba(167,139,250,.18);}
-.bchip .bid{font-family:'JetBrains Mono','Fira Code',monospace;font-size:10px;color:var(--text3);font-weight:400;}
-.bchip .bx{width:14px;height:14px;border-radius:50%;display:flex;align-items:center;justify-content:center;
-  font-size:10px;color:var(--text3);background:transparent;border:none;cursor:pointer;line-height:1;}
-.bchip .bx:hover{color:var(--red);background:rgba(255,79,106,.15);}
-
-/* 고급 접이식 */
-details.adv summary{cursor:pointer;font-size:11px;color:var(--text3);list-style:none;user-select:none;}
-details.adv summary::-webkit-details-marker{display:none;}
-details.adv summary::before{content:'▸ ';color:var(--text3);}
-details.adv[open] summary::before{content:'▾ ';}
-details.adv summary:hover{color:var(--text2);}
+/* r4-C: 내 보드 ID 뱃지 */
+.myboard{margin-bottom:6px;padding:7px 10px;border-radius:var(--r);text-align:center;
+  background:rgba(167,139,250,.1);border:1px solid rgba(167,139,250,.35);
+  font-size:11.5px;color:var(--text2);}
+.myboard b{font-family:'JetBrains Mono','Fira Code',monospace;color:var(--purple);letter-spacing:.5px;}
 
 /* 연결 모드 버튼 */
 .conn-mode-btn{
@@ -383,68 +371,41 @@ details.adv summary:hover{color:var(--text2);}
 
     <!-- BLE 패널 -->
     <div id="panel-ble" style="display:none;">
-      <div class="ble-pin-wrap">
+      <!-- r4-C: USB 우선 ID 확인 흐름 — 별명 기능 대체 -->
+      <button class="btn primary full" onclick="connectBLE()" id="ble-connect-btn"
+        style="width:100%;padding:9px;margin-bottom:6px;">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" style="width:13px;height:13px;">
+          <path d="M4 4l8 8M12 4l-8 8M8 1l4 3-4 3V1zM8 15l-4-3 4-3v6z"/>
+        </svg>
+        Bluetooth 연결
+      </button>
 
-        <!-- 기본 흐름: ID 입력 없이 연결 → 선택창에는 우리 보드(BLE-*)만 표시 -->
-        <button class="btn primary full" onclick="connectBLE()" id="ble-connect-btn"
-          style="width:100%;padding:9px;margin-bottom:6px;">
-          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" style="width:13px;height:13px;">
-            <path d="M4 4l8 8M12 4l-8 8M8 1l4 3-4 3V1zM8 15l-4-3 4-3v6z"/>
-          </svg>
-          BLE 연결
-        </button>
-        <div class="xs" style="margin-bottom:8px;color:var(--text2);line-height:1.6;">
-          선택창에서 <span style="color:var(--purple);">BLE-XXXX</span> 보드를 고르면 ID를 자동으로
-          읽고, 처음 보는 보드면 별명을 물어봅니다.
-        </div>
+      <!-- 내 보드 ID 뱃지 (USB 연결 시 자동 확인, localStorage 유지) -->
+      <div class="myboard" id="myboard-badge" style="display:none;"></div>
 
-        <!-- 저장된 보드 (별명 칩) -->
-        <div id="ble-known-wrap" style="display:none;margin-bottom:8px;">
-          <div class="xs" style="margin-bottom:4px;color:var(--text2);">저장된 보드 — 클릭하면 재연결</div>
-          <div class="chip-list" id="ble-known"></div>
-        </div>
-
-        <!-- 연결된 장치 정보 -->
-        <div class="ble-device-info" id="ble-device-info"
-          style="display:none;padding:8px 10px;margin-bottom:6px;
-          background:rgba(34,211,160,0.08);border:1px solid rgba(34,211,160,0.25);
-          border-radius:var(--r);font-size:11px;color:var(--green);">
-        </div>
-
-        <button class="btn full" id="ble-disconnect-btn" onclick="disconnectBLE()" disabled
-          style="font-size:11px;">BLE 연결 해제</button>
-
-        <!-- 고급: DEVICE ID 수동 지정 (비상용) -->
-        <details class="adv" id="ble-advanced" style="margin-top:8px;">
-          <summary>고급 — DEVICE ID 수동 지정</summary>
-          <div style="padding:8px 0 2px;">
-            <div class="xs" style="color:var(--text2);line-height:1.7;margin-bottom:6px;">
-              USB 연결 → 시리얼 모니터의
-              <span style="font-family:var(--font);color:var(--green);"># DEVICE ID : A3F7</span>
-              4자리를 입력하면 그 보드만 정확 필터로 찾습니다.
-            </div>
-            <input type="text" id="ble-pin" maxlength="4" placeholder="예) A3F7"
-              style="width:100%;background:var(--bg3);border:1px solid var(--border2);
-                     color:var(--text);border-radius:var(--r);padding:8px;
-                     font-size:16px;font-weight:700;text-align:center;
-                     letter-spacing:6px;outline:none;font-family:var(--font);
-                     text-transform:uppercase;margin-bottom:6px;"
-              oninput="this.value=this.value.toUpperCase().replace(/[^0-9A-F]/g,'');
-                       const v=this.value.padEnd(4,'?').slice(0,4);
-                       document.getElementById('ble-name-preview').textContent='BLE-'+v;"
-              onkeydown="if(event.key==='Enter')connectBLEManual()">
-            <button class="btn full" onclick="connectBLEManual()" style="font-size:11px;">ID로 연결</button>
-            <div class="xs" style="margin-top:6px;">
-              장치명: <span style="font-family:var(--font);color:var(--purple);" id="ble-name-preview">BLE-????</span>
-            </div>
-          </div>
-        </details>
+      <!-- ID 미확인 안내 (Bluetooth 클릭 시 표시) -->
+      <div id="ble-guide" style="display:none;background:rgba(245,166,35,0.08);
+           border:1px solid rgba(245,166,35,0.3);border-radius:var(--r);
+           padding:9px 11px;margin-bottom:6px;font-size:11px;color:var(--text2);line-height:1.7;">
+        연결할 기기 ID 확인을 위해 <b style="color:var(--amber);">먼저 USB로 연결</b>하세요.<br>
+        (시리얼 모니터에 <span style="font-family:'JetBrains Mono',monospace;color:var(--green);">BLE-XXXX</span>로 표시됩니다)
+        <button class="btn full" style="margin-top:7px;font-size:11px;" onclick="connectBLE(true)">그래도 목록에서 직접 선택</button>
       </div>
+
+      <!-- 연결된 장치 정보 -->
+      <div class="ble-device-info" id="ble-device-info"
+        style="display:none;padding:8px 10px;margin-bottom:6px;
+        background:rgba(34,211,160,0.08);border:1px solid rgba(34,211,160,0.25);
+        border-radius:var(--r);font-size:11px;color:var(--green);">
+      </div>
+
+      <button class="btn full" id="ble-disconnect-btn" onclick="disconnectBLE()" disabled
+        style="font-size:11px;">BLE 연결 해제</button>
 
       <div class="xs" style="margin-top:8px;padding:7px 9px;background:var(--bg3);
            border-radius:6px;border:1px solid var(--border);line-height:1.7;color:var(--text2);">
         ※ Chrome / Edge 필요 &nbsp;·&nbsp; 20Hz 이하 권장<br>
-        ※ 보안 정책상 <b>최초 1회는 선택창에서 장치를 골라야</b> 하며, 별명은 이후 재연결을 1클릭으로 만듭니다.
+        ※ 여러 모둠이 함께 쓸 때는 <b>내 보드 ID</b>를 확인하고 같은 이름을 선택하세요.
       </div>
     </div>
   </div>
@@ -684,6 +645,7 @@ const S = {
   bleChars:{},           // {sensorId: characteristic}
   bleConnected:false,
   blePIN:'',
+  myBoardId:null,        // r4-C: USB로 확인한 내 보드 고유 ID (BLE-XXXX의 XXXX)
 };
 
 // ═══════════════════════════════════════════════
@@ -2189,7 +2151,11 @@ function startReadLoop(){
   })();
 }
 function processLine(line){
-  if(line.startsWith('#')){log(line.slice(1).trim(),'sys');return;}
+  if(line.startsWith('#')){
+    extractBoardId(line);   // r4-C: 부팅 메시지에서 내 보드 ID 자동 추출
+    log(line.slice(1).trim(),'sys');
+    return;
+  }
   log(line,'rx');
   const parts=line.split(','); if(parts.length<2)return;
   const id=parts[0].toLowerCase();
@@ -2265,48 +2231,51 @@ const BLE_CHAR_MAP = {
 // 디바이스 정보 특성 (Read 전용 — 연결 후 DEVICE ID 자동 획득)
 const BLE_DEVINFO = '19b10008-e8f2-537e-4f6c-d104768a1214';
 
-// ── 보드 별명(닉네임) 저장소 ──────────────────────────
-// { "A3F7": "모둠3", ... } 형태로 localStorage에 유지
-const NICK_KEY='sensorlab.nicknames';
-function loadNicks(){try{return JSON.parse(localStorage.getItem(NICK_KEY)||'{}');}catch(e){return{};}}
-function saveNicks(n){localStorage.setItem(NICK_KEY,JSON.stringify(n));}
-function nickOf(id){return loadNicks()[id]||null;}
-function boardLabel(id){const n=nickOf(id);return n?`${n} (BLE-${id})`:('BLE-'+id);}
-function removeNick(id){
-  const n=loadNicks(); delete n[id]; saveNicks(n); renderKnownBoards();
-  log(`저장된 보드 삭제: BLE-${id}`,'sys');
+// ── r4-C: 내 보드 ID (USB 우선 확인 흐름 — 별명 기능 대체) ──────────
+// USB 부팅 메시지에서 자동 추출한 고유 ID를 뱃지로 표시하고 localStorage에 유지.
+const MYBOARD_KEY='sensorlab.myboard';
+function setMyBoardId(id){
+  id=(id||'').toUpperCase();
+  if(!/^[0-9A-F]{4}$/.test(id)) return;
+  S.myBoardId=id;
+  localStorage.setItem(MYBOARD_KEY, id);
+  updateMyBoardBadge();
 }
-function renderKnownBoards(){
-  const nicks=loadNicks();
-  const ids=Object.keys(nicks);
-  const wrap=document.getElementById('ble-known-wrap');
-  const el=document.getElementById('ble-known');
-  wrap.style.display=ids.length?'':'none';
-  el.innerHTML='';
-  ids.forEach(id=>{
-    const chip=document.createElement('div');
-    chip.className='bchip';
-    chip.title=`클릭: ${nicks[id]} 재연결 · 우클릭: 삭제`;
-    chip.innerHTML=`<span>${esc(nicks[id])}</span><span class="bid">BLE-${id}</span><button class="bx" title="별명 삭제">✕</button>`;
-    chip.onclick=(e)=>{ if(e.target.classList.contains('bx')){e.stopPropagation();removeNick(id);return;} reconnectKnown(id); };
-    chip.oncontextmenu=(e)=>{ e.preventDefault(); if(confirm(`"${nicks[id]}" (BLE-${id}) 별명을 삭제할까요?`)) removeNick(id); };
-    el.appendChild(chip);
-  });
+function updateMyBoardBadge(){
+  const el=document.getElementById('myboard-badge');
+  if(!el) return;
+  if(S.myBoardId){
+    el.style.display='';
+    el.innerHTML=`내 보드: <b>BLE-${esc(S.myBoardId)}</b>`;
+  } else el.style.display='none';
+}
+// 부팅/시스템 메시지에서 DEVICE ID 추출 ("# DEVICE ID : A3F7" / "# ID: A3F7 / BLE-A3F7")
+function extractBoardId(line){
+  const m=line.match(/DEVICE ID\s*:\s*([0-9A-F]{4})/i) || line.match(/#\s*ID:\s*([0-9A-F]{4})/i);
+  if(m) setMyBoardId(m[1]);
 }
 
 // ── BLE 연결 ─────────────────────────────────────────
 // 웹 블루투스 보안 모델상 최초 1회는 반드시 선택창에서 사용자가 장치를 골라야 한다.
-// (완전 무개입 자동 연결 불가) 별명은 그 이후의 재연결을 1클릭으로 만드는 장치다.
-async function connectBLE(targetId){
+// r4-C: ID 미확인 상태에서는 USB 우선 안내를 먼저 보여주고, [직접 선택]으로만 선택창 진입.
+async function connectBLE(force){
   if(!('bluetooth' in navigator)){
     log('Web Bluetooth 미지원 — Chrome / Edge 필요','err'); return;
   }
-  // targetId 지정 시 그 보드만 정확 필터, 아니면 우리 보드(BLE-*)만 목록에 표시
-  const filters = targetId ? [{name:'BLE-'+targetId}] : [{namePrefix:'BLE-'}];
-  log(targetId?`BLE 탐색 중: BLE-${targetId} ...`:'BLE 탐색 중 — 선택창에서 보드를 고르세요.','sys');
+  const guide=document.getElementById('ble-guide');
+  if(!S.myBoardId && !force){
+    if(guide) guide.style.display='';
+    log('연결할 기기 ID 확인을 위해 먼저 USB로 연결하세요. (시리얼 모니터에 BLE-XXXX로 표시)','sys');
+    return;
+  }
+  if(guide) guide.style.display='none';
+  if(S.myBoardId)
+    log(`목록에서 BLE-${S.myBoardId} 를 선택하세요 (다른 모둠 보드와 혼동 주의)`,'sys');
+  else
+    log('BLE 탐색 중 — 선택창에서 보드를 고르세요.','sys');
   try{
     const device = await navigator.bluetooth.requestDevice({
-      filters,
+      filters:[{namePrefix:'BLE-'}],
       optionalServices: [BLE_SERVICE]
     });
     await setupBLEDevice(device);
@@ -2318,33 +2287,6 @@ async function connectBLE(targetId){
     else
       log('BLE 연결 실패: '+e.message,'err');
   }
-}
-
-// 고급 패널: DEVICE ID 수동 지정 경로 (비상용)
-function connectBLEManual(){
-  const id=document.getElementById('ble-pin').value.trim().toUpperCase();
-  if(id.length!==4){log('DEVICE ID 4자리를 입력하세요. (예: A3F7)','err');return;}
-  connectBLE(id);
-}
-
-// 저장된 보드 칩 클릭 → 재연결
-async function reconnectKnown(id){
-  if(!('bluetooth' in navigator)){log('Web Bluetooth 미지원','err');return;}
-  const name='BLE-'+id;
-  // getDevices() 지원 브라우저(크롬 데스크톱): 이미 허가된 장치면 선택창 없이 재연결
-  if(navigator.bluetooth.getDevices){
-    try{
-      const devs=await navigator.bluetooth.getDevices();
-      const d=devs.find(x=>x.name===name);
-      if(d){
-        log(`재연결 시도: ${boardLabel(id)} (선택창 없음)`,'sys');
-        await setupBLEDevice(d);
-        return;
-      }
-    }catch(e){ /* 미지원/실패 시 아래 폴백 */ }
-  }
-  // 폴백: 해당 이름 정확 필터로 선택창 1탭
-  connectBLE(id);
 }
 
 // 장치 선택/획득 이후의 공통 연결 절차
@@ -2382,14 +2324,18 @@ async function setupBLEDevice(device){
   if(!devId && device.name && device.name.startsWith('BLE-')) devId=device.name.slice(4);
   S.blePIN=devId;
 
-  // 처음 보는 보드면 별명 등록 제안
-  if(devId && !nickOf(devId)){
-    const nk=prompt(`이 보드의 별명? 예: 모둠3\n(비워두면 저장하지 않음)`,'');
-    if(nk && nk.trim()){
-      const n=loadNicks(); n[devId]=nk.trim(); saveNicks(n); renderKnownBoards();
-      log(`별명 저장: ${nk.trim()} = BLE-${devId}`,'sys');
+  // r4-C: 확인된 내 보드 ID와 다른 장치를 골랐으면 경고 확인창
+  if(S.myBoardId && devId && devId!==S.myBoardId){
+    const ok=confirm(
+      `선택한 보드: BLE-${devId}\n내 보드:     BLE-${S.myBoardId}\n\n`+
+      `다른 모둠의 보드일 수 있습니다. 계속 연결할까요?`);
+    if(!ok){
+      try{ device.gatt.disconnect(); }catch(e){}
+      log('연결 취소됨 (보드 ID 불일치)','sys');
+      return;
     }
   }
+  if(devId && !S.myBoardId) setMyBoardId(devId);   // DeviceInfo로 확인된 ID도 뱃지에 반영
 
   S.bleConnected=true;
   S.connected=true;
@@ -2397,7 +2343,7 @@ async function setupBLEDevice(device){
   document.getElementById('ble-connect-btn').disabled=true;
   document.getElementById('ble-disconnect-btn').disabled=false;
 
-  const label = devId ? boardLabel(devId) : (device.name||'BLE 장치');
+  const label = devId ? ('BLE-'+devId) : (device.name||'BLE 장치');
   const info=document.getElementById('ble-device-info');
   info.style.display='';
   info.innerHTML=`연결됨: <b>${esc(label)}</b>`;
@@ -2409,7 +2355,7 @@ async function setupBLEDevice(device){
 }
 
 function onBLELine(line){
-  if(line.startsWith('#')){log(line.slice(1).trim(),'sys');return;}
+  if(line.startsWith('#')){extractBoardId(line);log(line.slice(1).trim(),'sys');return;}
   // BLE는 20자 제한으로 잘림 → 센서ID만 파싱
   const parts=line.split(','); if(parts.length<2) return;
   const id=parts[0].toLowerCase();
@@ -3161,7 +3107,8 @@ function switchTab(id){
 // 초기화
 // ═══════════════════════════════════════════════
 buildSensorList();
-renderKnownBoards();
+S.myBoardId=(localStorage.getItem(MYBOARD_KEY)||'').match(/^[0-9A-F]{4}$/)?localStorage.getItem(MYBOARD_KEY):null;
+updateMyBoardBadge();
 log('Arduino Nano 33 BLE 대시보드 v2.1 로드됨','sys');
 log('Web Serial API: '+('serial' in navigator?'지원됨 ✓':'미지원 ✗ — Chrome/Edge 필요'),'serial' in navigator?'sys':'err');
 log('Web Bluetooth API: '+('bluetooth' in navigator?'지원됨 ✓':'미지원 ✗ — Chrome/Edge 필요'),'bluetooth' in navigator?'sys':'err');
