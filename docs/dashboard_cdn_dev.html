@@ -675,7 +675,7 @@ function setSR(el, type){
 function trimAllBufs(){
   Object.keys(S.chartData).forEach(id=>{
     const cd=S.chartData[id];
-    while(cd.labels.length>S.bufSize){cd.labels.shift();if(cd.elapsed)cd.elapsed.shift();cd.datasets.forEach(d=>d.data.shift());}
+    cd.datasets.forEach(d=>{while(d.data.length>S.bufSize) d.data.shift();});
   });
 }
 
@@ -731,9 +731,8 @@ function rebuildCharts(){
 
   active.forEach(s=>{
     if(S.charts[s.id]) return;
+    // R0: x축 숫자축 — 각 포인트는 {x: elapsed_s, y: value}
     S.chartData[s.id]={
-      labels:[],
-      elapsed:[],   // 각 포인트의 elapsed_s (ROI 픽셀→시간 환산용 병렬 배열)
       datasets:s.axes.map((ax,i)=>({
         label:ax, data:[],
         borderColor:colorVar(s.color,i,s.axes.length),
@@ -777,8 +776,15 @@ function rebuildCharts(){
 
     if(isTempHum) S.chartData[s.id].datasets = chartDatasets;
 
+    // R0: x축은 linear(초 단위) — 접선/적분/피팅/XY 플롯의 전제
+    const xScale={
+      type:'linear',
+      grid:{color:S.theme==='dark'?'rgba(255,255,255,0.04)':'rgba(0,0,0,0.05)'},
+      ticks:{maxTicksLimit:7,font:{size:9},callback:v=>(+v).toFixed(1)},
+      title:{display:true,text:'시간 (s)',font:{size:9}},
+    };
     const scalesOpt = isTempHum ? {
-      x:{grid:{color:S.theme==='dark'?'rgba(255,255,255,0.04)':'rgba(0,0,0,0.05)'},ticks:{maxTicksLimit:7,font:{size:9}}},
+      x:xScale,
       yTemp:{
         type:'linear', position:'left',
         grid:{color:S.theme==='dark'?'rgba(255,255,255,0.04)':'rgba(0,0,0,0.05)'},
@@ -793,7 +799,7 @@ function rebuildCharts(){
         min:0, max:100,
       },
     } : {
-      x:{grid:{color:S.theme==='dark'?'rgba(255,255,255,0.04)':'rgba(0,0,0,0.05)'},ticks:{maxTicksLimit:7,font:{size:9}}},
+      x:xScale,
       y:{
         grid:{color:S.theme==='dark'?'rgba(255,255,255,0.04)':'rgba(0,0,0,0.05)'},
         ticks:{font:{size:9},maxTicksLimit:5},
@@ -845,12 +851,9 @@ function pushData(sid, values){
   const now=new Date();
   const elapsed=S.recActualStart ? +((now-S.recActualStart)/1000).toFixed(2) : 0;
 
-  // 차트 append (elapsed_s를 병렬 배열로 저장 — ROI 픽셀→시간 환산용)
-  const lbl=now.toLocaleTimeString('ko-KR',{hour12:false});
-  cd.labels.push(lbl);
-  cd.elapsed.push(elapsed);
-  values.forEach((v,i)=>{if(cd.datasets[i]) cd.datasets[i].data.push(v);});
-  while(cd.labels.length>S.bufSize){cd.labels.shift();cd.elapsed.shift();cd.datasets.forEach(d=>d.data.shift());}
+  // 차트 append — R0: {x: elapsed_s, y: value} 포인트 (숫자축), 롤링 버퍼 유지
+  values.forEach((v,i)=>{if(cd.datasets[i]) cd.datasets[i].data.push({x:elapsed, y:v});});
+  cd.datasets.forEach(d=>{while(d.data.length>S.bufSize) d.data.shift();});
   if(S.charts[sid]) S.charts[sid].update('none');
 
   // 레코드 저장
@@ -881,8 +884,6 @@ function pushData(sid, values){
 function resetCharts(){
   Object.keys(S.chartData).forEach(id=>{
     const cd=S.chartData[id];
-    cd.labels.length=0;
-    if(cd.elapsed) cd.elapsed.length=0;
     cd.datasets.forEach(d=>d.data.length=0);
     if(S.charts[id]) S.charts[id].update('none');
   });
@@ -898,26 +899,30 @@ S.roi={show:false,t1:0,t2:0};
 S.roiMeta=null;
 let _roiDrag=null;   // {sid,x0} 드래그 진행 상태
 
-// Chart.js 커스텀 플러그인 — 선택 구간 반투명 하이라이트
+// 차트의 x 데이터 범위 [min,max] (첫 데이터셋 기준 — 전 시리즈 동일 x)
+function _chartXRange(sid){
+  const cd=S.chartData[sid];
+  const d=cd&&cd.datasets[0]&&cd.datasets[0].data;
+  if(!d||!d.length) return null;
+  return [d[0].x, d[d.length-1].x];
+}
+
+// Chart.js 커스텀 플러그인 — 선택 구간 반투명 하이라이트 (R0: 숫자축이라 시간→픽셀 직접 변환)
 const roiPlugin={
   id:'roiHighlight',
   afterDatasetsDraw(chart){
     if(!S.roi.show) return;
-    const sid=chart.$sid; const cd=S.chartData[sid];
-    if(!cd||!cd.elapsed||!cd.elapsed.length) return;
-    // elapsed[](오름차순)에서 [t1,t2]에 해당하는 인덱스 범위
-    let i1=-1,i2=-1;
-    for(let i=0;i<cd.elapsed.length;i++){
-      if(i1<0 && cd.elapsed[i]>=S.roi.t1) i1=i;
-      if(cd.elapsed[i]<=S.roi.t2) i2=i;
-    }
-    if(i1<0||i2<0||i2<i1) return;
+    const sid=chart.$sid;
+    const range=_chartXRange(sid); if(!range) return;
+    if(S.roi.t2<range[0]||S.roi.t1>range[1]) return;
     const xs=chart.scales.x, area=chart.chartArea, ctx=chart.ctx;
-    const x1=xs.getPixelForValue(i1), x2=xs.getPixelForValue(i2);
+    const x1=Math.max(area.left, xs.getPixelForValue(S.roi.t1));
+    const x2=Math.min(area.right, xs.getPixelForValue(S.roi.t2));
+    if(x2<=x1) return;
     ctx.save();
-    ctx.fillStyle = S.theme==='dark' ? 'rgba(61,126,255,0.16)' : 'rgba(61,126,255,0.12)';
+    ctx.fillStyle = S.theme==='dark' ? 'rgba(45,212,191,0.12)' : 'rgba(45,212,191,0.12)';  /* --teal 12% */
     ctx.fillRect(x1, area.top, x2-x1, area.bottom-area.top);
-    ctx.strokeStyle='rgba(61,126,255,0.55)';
+    ctx.strokeStyle='rgba(45,212,191,0.55)';
     ctx.lineWidth=1;
     ctx.beginPath();
     ctx.moveTo(x1,area.top); ctx.lineTo(x1,area.bottom);
@@ -928,21 +933,19 @@ const roiPlugin={
 };
 Chart.register(roiPlugin);
 
-// 픽셀 x → 해당 차트의 elapsed_s
+// 픽셀 x → 해당 차트의 x값(시간 모드: 초) — 데이터 범위로 클램프
 function _pxToElapsed(chart, px){
-  const cd=S.chartData[chart.$sid];
-  if(!cd||!cd.elapsed.length) return null;
-  let idx=Math.round(chart.scales.x.getValueForPixel(px));
-  idx=Math.max(0, Math.min(cd.elapsed.length-1, idx));
-  return cd.elapsed[idx];
+  const range=_chartXRange(chart.$sid);
+  if(!range) return null;
+  const t=chart.scales.x.getValueForPixel(px);
+  return Math.max(range[0], Math.min(range[1], t));
 }
 
 // 각 차트 캔버스에 드래그 핸들러 부착 (rebuildCharts에서 호출)
 function attachRoiDrag(canvas, sid){
   canvas.addEventListener('pointerdown',(e)=>{
     if(S.recording) return;                      // 수집 중에는 선택 불가
-    const cd=S.chartData[sid];
-    if(!cd||!cd.elapsed||!cd.elapsed.length) return;
+    if(!_chartXRange(sid)) return;               // 데이터 없으면 무시
     _roiDrag={sid, x0:e.offsetX, moved:false};
     canvas.setPointerCapture(e.pointerId);
   });
