@@ -232,7 +232,8 @@ body.recording .ana-toolbar button{opacity:.4;cursor:not-allowed;}
 .ar-row{font-size:11.5px;color:var(--text2);padding:3px 0;line-height:1.55;}
 .ar-row b{color:var(--text);}
 .ar-val{font-family:'JetBrains Mono','Fira Code',monospace;color:var(--teal);font-weight:600;}
-.ar-eq{font-family:'JetBrains Mono','Fira Code',monospace;color:var(--amber);}
+.ar-eq{font-family:'Georgia','Times New Roman',serif;font-style:italic;color:var(--amber);}
+.ar-eq sup{font-size:9px;}
 .ar-unit{color:var(--text3);}
 .ar-rng{color:var(--text3);font-size:10px;}
 
@@ -265,6 +266,16 @@ body.recording .ax-chip{opacity:.4;cursor:not-allowed;}
 .xy-pop .xp-sel{width:100%;background:var(--bg3);border:1px solid var(--border2);color:var(--text);
   border-radius:7px;padding:6px 8px;font-size:12px;font-family:inherit;outline:none;}
 .xy-pop .xp-btns{display:flex;gap:6px;margin-top:10px;}
+/* 피팅 모델 라디오 목록 — 수식만 표기 (수학 서체) */
+.fm-list{display:flex;flex-direction:column;gap:4px;margin-top:4px;}
+.fm-item{display:flex;align-items:center;gap:8px;padding:7px 9px;
+  border:1px solid var(--border);border-radius:8px;cursor:pointer;transition:all .12s;}
+.fm-item:hover{border-color:var(--border2);background:var(--bg3);}
+.fm-item input{accent-color:var(--accent);margin:0;flex-shrink:0;}
+.fm-eq{font-family:'Georgia','Times New Roman',serif;font-style:italic;
+  font-size:13.5px;color:var(--text);white-space:nowrap;flex:1;}
+.fm-eq sup{font-size:9.5px;}
+.fm-deg{margin-left:auto;width:60px;padding:3px 6px;font-size:11px;flex-shrink:0;}
 
 /* ── ROI 힌트 툴팁 ── */
 .roi-hint{position:fixed;z-index:190;transform:translateX(-50%);pointer-events:none;
@@ -1420,15 +1431,35 @@ function gaussSolve(A,b){                  // 부분 피벗 가우스 소거
   }
   return M.map((row,i)=>row[n]/row[i]);
 }
-function fitLinear(pts){                   // y = a·x + b (최소제곱 닫힌해)
+function fitLinear(pts){                   // 내부용: y = a·x + b (최소제곱 닫힌해)
   const n=pts.length; if(n<2) return null;
   let sx=0,sy=0,sxx=0,sxy=0;
   for(const p of pts){sx+=p.x;sy+=p.y;sxx+=p.x*p.x;sxy+=p.x*p.y;}
   const d=n*sxx-sx*sx; if(Math.abs(d)<1e-12) return null;
   const a=(n*sxy-sx*sy)/d, b=(sy-a*sx)/n;
-  return {params:{'기울기 a':a,'절편 b':b}, fn:x=>a*x+b, eq:`y = ${sig(a)}·x + ${sig(b)}`};
+  return {a, b, params:{a,b}, fn:x=>a*x+b, eq:`y = ${sig(a)}x + ${sig(b)}`, eqHtml:`y = ${sig(a)}x + ${sig(b)}`};
 }
-function fitPoly(pts,deg){                 // y = Σaᵢxⁱ (정규방정식)
+// 다항 기호 수식 (대화상자 미리보기용): deg=3 → y = ax³ + bx² + cx + d
+const FIT_LETTERS='abcdef';
+function polySymbolic(deg){
+  const t=[];
+  for(let k=0;k<=deg;k++){
+    const p=deg-k, v=FIT_LETTERS[k];
+    t.push(p>1?`${v}x<sup>${p}</sup>`:(p===1?`${v}x`:v));
+  }
+  return 'y = '+t.join(' + ');
+}
+// 수치 항 표기 (부호 처리 포함)
+function _polyTerm(coef, p, first){
+  const s=sig(Math.abs(coef));
+  const xs=p>1?`x<sup>${p}</sup>`:(p===1?'x':'');
+  const xp=p>1?`x^${p}`:(p===1?'x':'');
+  return {
+    html:(first?(coef<0?'−':''):(coef<0?' − ':' + '))+s+xs,
+    plain:(first?(coef<0?'-':''):(coef<0?' - ':' + '))+s+xp,
+  };
+}
+function fitPoly(pts,deg){                 // y = axⁿ + bxⁿ⁻¹ + … (정규방정식, 1~5차)
   if(pts.length<deg+1) return null;
   const n=deg+1;
   const pow=new Array(2*deg+1).fill(0), B=new Array(n).fill(0);
@@ -1437,10 +1468,15 @@ function fitPoly(pts,deg){                 // y = Σaᵢxⁱ (정규방정식)
     let xq=1; for(let k=0;k<=deg;k++){B[k]+=xq*p.y; xq*=p.x;}
   }
   const A=Array.from({length:n},(_,i)=>Array.from({length:n},(_,j)=>pow[i+j]));
-  const c=gaussSolve(A,B); if(!c) return null;
-  const params={}; c.forEach((v,i)=>params['a'+i]=v);
-  return {params, fn:x=>c.reduce((s,ci,i)=>s+ci*Math.pow(x,i),0),
-          eq:'y = '+c.map((ci,i)=>`${sig(ci)}${i?('·x'+(i>1?'^'+i:'')):''}`).reverse().join(' + ')};
+  const c=gaussSolve(A,B); if(!c) return null;   // c[i] = xⁱ 계수 (오름차순)
+  const params={};
+  for(let k=0;k<=deg;k++) params[FIT_LETTERS[k]]=c[deg-k];   // a=최고차부터 소문자 순
+  let html='y = ', plain='y = ';
+  for(let k=0;k<=deg;k++){
+    const t=_polyTerm(c[deg-k], deg-k, k===0);
+    html+=t.html; plain+=t.plain;
+  }
+  return {params, fn:x=>c.reduce((s,ci,i)=>s+ci*Math.pow(x,i),0), eq:plain, eqHtml:html};
 }
 // Levenberg-Marquardt (수치 야코비안) — 지수/거듭제곱/사인 공용
 function lmFit(pts, model, p0, iters=200){
@@ -1476,35 +1512,36 @@ function lmFit(pts, model, p0, iters=200){
   }
   return {p, cost};
 }
-function fitExp(pts){                      // y = A·e^(k·x) — ln 선형화 초기값 → GN/LM 정련
+function fitExp(pts){                      // y = a·e^(bx) — ln 선형화 초기값 → LM 정련
   const pos=pts.filter(p=>p.y>0); if(pos.length<3) return null;
   const lin=fitLinear(pos.map(p=>({x:p.x,y:Math.log(p.y)}))); if(!lin) return null;
-  const A0=Math.exp(lin.params['절편 b']), k0=lin.params['기울기 a'];
-  const r=lmFit(pts,(x,p)=>p[0]*Math.exp(p[1]*x),[A0,k0]);
-  const [A,k]=r.p;
-  return {params:{A,k}, fn:x=>A*Math.exp(k*x), eq:`y = ${sig(A)}·e^(${sig(k)}·x)`};
+  const r=lmFit(pts,(x,p)=>p[0]*Math.exp(p[1]*x),[Math.exp(lin.b), lin.a]);
+  const [a,b]=r.p;
+  return {params:{a,b}, fn:x=>a*Math.exp(b*x),
+          eq:`y = ${sig(a)}·e^(${sig(b)}x)`, eqHtml:`y = ${sig(a)}·e<sup>${sig(b)}x</sup>`};
 }
-function fitPower(pts){                    // y = A·x^n — log-log 선형화 → LM 정련
+function fitPower(pts){                    // y = a·x^b — log-log 선형화 → LM 정련
   const pp=pts.filter(p=>p.x>0&&p.y>0); if(pp.length<3) return null;
   const lin=fitLinear(pp.map(p=>({x:Math.log(p.x),y:Math.log(p.y)}))); if(!lin) return null;
-  const A0=Math.exp(lin.params['절편 b']), n0=lin.params['기울기 a'];
-  const r=lmFit(pp,(x,p)=>p[0]*Math.pow(x,p[1]),[A0,n0]);
-  const [A,n]=r.p;
-  return {params:{A,n}, fn:x=>A*Math.pow(x,n), eq:`y = ${sig(A)}·x^${sig(n)}`};
+  const r=lmFit(pp,(x,p)=>p[0]*Math.pow(x,p[1]),[Math.exp(lin.b), lin.a]);
+  const [a,b]=r.p;
+  return {params:{a,b}, fn:x=>a*Math.pow(x,b),
+          eq:`y = ${sig(a)}·x^${sig(b)}`, eqHtml:`y = ${sig(a)}·x<sup>${sig(b)}</sup>`};
 }
-function fitSine(pts){                     // y = A·sin(ω·x+φ)+C — 초기값 추정 → LM
+function fitSine(pts){                     // y = a·sin(bx + c) + d — 초기값 추정 → LM
   if(pts.length<6) return null;
   const ys=pts.map(p=>p.y);
-  const C0=ys.reduce((a,b)=>a+b,0)/ys.length;
-  const A0=Math.sqrt(2*ys.reduce((s,y)=>s+(y-C0)**2,0)/ys.length)||1;
+  const d0=ys.reduce((a,b)=>a+b,0)/ys.length;
+  const a0=Math.sqrt(2*ys.reduce((s,y)=>s+(y-d0)**2,0)/ys.length)||1;
   let cross=0;
-  for(let i=1;i<ys.length;i++) if((ys[i-1]-C0)*(ys[i]-C0)<0) cross++;
+  for(let i=1;i<ys.length;i++) if((ys[i-1]-d0)*(ys[i]-d0)<0) cross++;
   const span=pts[pts.length-1].x-pts[0].x;
-  const w0=cross>0 ? Math.PI*cross/Math.max(span,1e-6) : 2*Math.PI/Math.max(span,1e-6);
-  const r=lmFit(pts,(x,p)=>p[0]*Math.sin(p[1]*x+p[2])+p[3],[A0,w0,0,C0],400);
-  const [A,w,ph,C]=r.p;
-  return {params:{A,'ω':w,'φ':ph,C}, fn:x=>A*Math.sin(w*x+ph)+C,
-          eq:`y = ${sig(A)}·sin(${sig(w)}·x + ${sig(ph)}) + ${sig(C)}`};
+  const b0=cross>0 ? Math.PI*cross/Math.max(span,1e-6) : 2*Math.PI/Math.max(span,1e-6);
+  const r=lmFit(pts,(x,p)=>p[0]*Math.sin(p[1]*x+p[2])+p[3],[a0,b0,0,d0],400);
+  const [a,b,c,d]=r.p;
+  return {params:{a,b,c,d}, fn:x=>a*Math.sin(b*x+c)+d,
+          eq:`y = ${sig(a)}·sin(${sig(b)}x + ${sig(c)}) + ${sig(d)}`,
+          eqHtml:`y = ${sig(a)}·sin(${sig(b)}x + ${sig(c)}) + ${sig(d)}`};
 }
 function fitStats(pts,fn){                 // R², 잔차 RMS
   const n=pts.length;
@@ -1523,7 +1560,7 @@ function localSlope(pts, idx, k=3){
   const a=Math.max(0,idx-k), b=Math.min(pts.length-1,idx+k);
   const seg=pts.slice(a,b+1);
   const lin=fitLinear(seg);
-  return lin ? lin.params['기울기 a'] : 0;
+  return lin ? lin.a : 0;
 }
 
 // ── 분석 대상 데이터 (E-3: 내보내기와 동일 스코프 — 그 차트의 변수·ROI) ──
@@ -1681,13 +1718,13 @@ function anaIntegral(sid){
 }
 
 // ── 6-D 피팅 — ROI 연동, 모델 선택 대화상자 ──
+// 모델 목록 — 대화상자에는 텍스트 없이 모델 함수(수식)만 표기.
+// 선형은 다항식 1차로 통합, 다항식은 1~5차 드롭다운 선택 (파라미터: 최고차부터 a,b,c…)
 const FIT_MODELS=[
-  {id:'linear', name:'선형 y=a·x+b',          f:pts=>fitLinear(pts)},
-  {id:'poly2',  name:'2차 다항 y=a₂x²+a₁x+a₀', f:pts=>fitPoly(pts,2)},
-  {id:'poly3',  name:'3차 다항',               f:pts=>fitPoly(pts,3)},
-  {id:'exp',    name:'지수 y=A·e^(k·x)',       f:pts=>fitExp(pts)},
-  {id:'power',  name:'거듭제곱 y=A·x^n',       f:pts=>fitPower(pts)},
-  {id:'sine',   name:'사인 y=A·sin(ω·x+φ)+C',  f:pts=>fitSine(pts)},
+  {id:'poly',  name:'다항식',   hasDeg:true, f:(pts,deg)=>fitPoly(pts,deg||1)},
+  {id:'exp',   name:'지수',     eqHtml:'y = a·e<sup>bx</sup>',      f:pts=>fitExp(pts)},
+  {id:'power', name:'거듭제곱', eqHtml:'y = a·x<sup>b</sup>',       f:pts=>fitPower(pts)},
+  {id:'sine',  name:'사인',     eqHtml:'y = a·sin(bx + c) + d',     f:pts=>fitSine(pts)},
 ];
 function anaFitOpen(sid){
   if(S.recording){ log('수집 중에는 사용할 수 없습니다.','err'); return; }
@@ -1699,39 +1736,61 @@ function anaFitOpen(sid){
   const pop=document.getElementById('xy-pop');    // 팝오버 컨테이너 재사용
   const series=analysisSeries(sid);
   pop.innerHTML=`
-    <div class="xp-title">영역 피팅 — x: ${sig(S.roi.x1,3)}~${sig(S.roi.x2,3)} · y: ${sig(S.roi.y1,3)}~${sig(S.roi.y2,3)}</div>
+    <div class="xp-title">영역 피팅</div>
+    <div class="xs" style="margin-bottom:6px;">x: ${sig(S.roi.x1,3)} ~ ${sig(S.roi.x2,3)} &nbsp;·&nbsp; y: ${sig(S.roi.y1,3)} ~ ${sig(S.roi.y2,3)}</div>
     <label class="xp-lbl">모델</label>
-    <select id="fit-model" class="xp-sel">${FIT_MODELS.map(m=>`<option value="${m.id}">${esc(m.name)}</option>`).join('')}</select>
+    <div class="fm-list">
+      <label class="fm-item">
+        <input type="radio" name="fitm" value="poly" checked>
+        <span class="fm-eq" id="fm-poly-eq">${polySymbolic(1)}</span>
+        <select id="fit-deg" class="xp-sel fm-deg">${[1,2,3,4,5].map(d=>`<option value="${d}">${d}차</option>`).join('')}</select>
+      </label>
+      ${FIT_MODELS.filter(m=>!m.hasDeg).map(m=>`
+      <label class="fm-item">
+        <input type="radio" name="fitm" value="${m.id}">
+        <span class="fm-eq">${m.eqHtml}</span>
+      </label>`).join('')}
+    </div>
     ${series.length>1?`<label class="xp-lbl">시리즈</label>
     <select id="fit-series" class="xp-sel">${series.map(su=>`<option value="${su.idx}">${esc(su.label)}</option>`).join('')}</select>`:''}
     <div class="xp-btns"><button class="btn primary" style="flex:1;" id="fit-run">피팅 실행</button></div>`;
   pop.classList.add('show');
-  const card=document.getElementById('cc-'+sid);
+  const card=document.getElementById('gc-'+sid);
   const r=card?card.getBoundingClientRect():{left:innerWidth/2,top:innerHeight/2,width:0};
-  pop.style.left=Math.max(8,Math.min(innerWidth-260, r.left+r.width/2-120))+'px';
+  pop.style.left=Math.max(8,Math.min(innerWidth-280, r.left+r.width/2-130))+'px';
   pop.style.top=Math.max(8,r.top+40)+'px';
+  // 차수 변경 → 다항 수식 미리보기 갱신 + 다항 라디오 자동 선택
+  const degSel=document.getElementById('fit-deg');
+  degSel.onclick=e=>e.stopPropagation();
+  degSel.onchange=e=>{
+    document.getElementById('fm-poly-eq').innerHTML=polySymbolic(+e.target.value);
+    pop.querySelector('input[name="fitm"][value="poly"]').checked=true;
+  };
   document.getElementById('fit-run').onclick=()=>{
-    const mid=document.getElementById('fit-model').value;
+    const mid=pop.querySelector('input[name="fitm"]:checked').value;
+    const deg=+degSel.value;
     const sIdx=series.length>1?+document.getElementById('fit-series').value:series[0].idx;
     hideXyPop();
-    anaFitRun(sid, mid, sIdx);
+    anaFitRun(sid, mid, sIdx, deg);
   };
 }
-function anaFitRun(sid, modelId, seriesIdx){
+function anaFitRun(sid, modelId, seriesIdx, deg){
   const model=FIT_MODELS.find(m=>m.id===modelId);
   const su=analysisSeries(sid).find(s=>s.idx===seriesIdx);
   const pts=analysisPoints(sid, seriesIdx, 'box');   // B-3: 피팅은 박스 내부 점만 (y범위 = 이상치 제외)
-  if(pts.length<3){ log('선택 영역의 데이터가 부족합니다.','err'); return; }
-  const fit=model.f(pts);
+  const minPts=model.hasDeg?(deg||1)+2:3;
+  if(pts.length<minPts){ log('선택 영역의 데이터가 부족합니다.','err'); return; }
+  const fit=model.f(pts, deg);
   if(!fit){ log(`피팅 실패: ${model.name} — 데이터가 모델 조건에 맞지 않습니다.`,'err'); return; }
   const st=fitStats(pts, fit.fn);
   const ch=S.charts[sid]; if(!ch) return;
   (ch.$fits=ch.$fits||[]).push({fn:fit.fn, x1:S.roi.x1, x2:S.roi.x2});
   ch.update('none');
   const ptxt=Object.entries(fit.params).map(([k,v])=>`${k}=${sig(v)}`).join(', ');
-  const plain=`피팅[${model.name}] ${su.label}: ${fit.eq} | ${ptxt} | R²=${sig(st.r2)} RMS=${sig(st.rms)}`;
+  const mname=model.hasDeg?`다항식 ${deg||1}차`:model.name;
+  const plain=`피팅[${mname}] ${su.label}: ${fit.eq} | ${ptxt} | R²=${sig(st.r2)} RMS=${sig(st.rms)}`;
   anaResult(sid,
-    `<b>ƒ ${esc(su.label)}</b> <span class="ar-eq">${esc(fit.eq)}</span><br>`+
+    `<b>ƒ ${esc(su.label)}</b> <span class="ar-eq">${fit.eqHtml||esc(fit.eq)}</span><br>`+
     `<span class="ar-unit">${esc(ptxt)}</span> · <b>R²=${sig(st.r2)}</b> · RMS=${sig(st.rms)}`, plain);
   log(plain,'sys');
 }
