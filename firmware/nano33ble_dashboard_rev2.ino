@@ -190,11 +190,16 @@ void loop() {
 
   if (active[0] && IMU.accelerationAvailable()) {
     float ax,ay,az; IMU.readAcceleration(ax,ay,az);
-    sendData("imu_acc,"+String(ax*9.81,3)+","+String(ay*9.81,3)+","+String(az*9.81,3)+","+String(now), chImuAcc);
+    // BMI270 축 보정: 라이브러리 축이 보드 실크(데이터시트: +Y=USB 방향, +X=오른쪽)와
+    // 90° 어긋나 있어 보드 기준으로 회전. USB 케이블로 매달면 Ay ≈ -9.8 m/s².
+    float bx=-ay, by=ax, bz=az;
+    sendData("imu_acc,"+String(bx*9.81,3)+","+String(by*9.81,3)+","+String(bz*9.81,3)+","+String(now), chImuAcc);
   }
   if (active[1] && IMU.gyroscopeAvailable()) {
     float gx,gy,gz; IMU.readGyroscope(gx,gy,gz);
-    sendData("imu_gyr,"+String(gx,2)+","+String(gy,2)+","+String(gz,2)+","+String(now), chImuGyr);
+    // 자이로도 같은 칩(BMI270)이므로 동일 회전 보정 적용
+    float bgx=-gy, bgy=gx, bgz=gz;
+    sendData("imu_gyr,"+String(bgx,2)+","+String(bgy,2)+","+String(bgz,2)+","+String(now), chImuGyr);
   }
   if (active[2] && IMU.magneticFieldAvailable()) {
     float mx,my,mz; IMU.readMagneticField(mx,my,mz);

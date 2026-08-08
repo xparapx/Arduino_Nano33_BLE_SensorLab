@@ -146,6 +146,7 @@ header{display:flex;align-items:center;justify-content:space-between;padding:0 1
 .rec-stat{display:flex;flex-direction:column;align-items:center;min-width:70px;}
 .rs-val{font-size:16px;font-weight:700;font-family:'JetBrains Mono','Fira Code',monospace;color:var(--text);}
 .rs-lbl{font-size:9px;color:var(--text3);margin-top:1px;}
+.exp-group{margin-left:auto;display:flex;gap:6px;align-items:center;}
 
 /* r4-D 워크스페이스 */
 .workspace{display:flex;flex-direction:column;gap:12px;}
@@ -514,25 +515,7 @@ body.light .code-block{color:#3a4a6b;background:#f8f9fc;}
     <div class="trig-info" id="trig-info">조건 없음 — 수동 제어</div>
   </div>
 
-  <!-- 수집 버튼·통계는 차트 영역 상단 rec-bar로 이동 -->
-
-  <!-- 내보내기 -->
-  <div class="sec">
-    <div class="sec-lbl">데이터 내보내기</div>
-    <div class="export-grid">
-      <button class="btn full" id="exp-csv" onclick="exportCSV()" disabled>
-        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2v8M5 7l3 3 3-3"/><path d="M3 13h10"/></svg>
-        CSV
-      </button>
-      <button class="btn full" id="exp-xlsx" onclick="exportXLSX()" disabled>
-        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2v8M5 7l3 3 3-3"/><path d="M3 13h10"/></svg>
-        XLSX
-      </button>
-    </div>
-    <button class="btn full" id="exp-clear" onclick="clearData()" disabled style="margin-top:5px;font-size:11px;">데이터 초기화</button>
-    <div class="xs" style="margin-top:5px;text-align:center;">저장: <span id="rec-count">0</span>개 · <span id="exp-range">—</span></div>
-    <div class="xs" style="margin-top:5px;text-align:center;" title="차트 버퍼는 롤링이라 화면에 보이는 구간만 선택할 수 있습니다.">수집 정지 후 차트 드래그로 구간 선택 → 우클릭 메뉴</div>
-  </div>
+  <!-- 수집 버튼·통계·내보내기·초기화는 차트 영역 상단 rec-bar로 이동 -->
 
   <!-- r4-E: 데모 버튼은 패널에서 제거 — URL ?demo=1 일 때만 코드에서 주입 -->
 
@@ -549,6 +532,17 @@ body.light .code-block{color:#3a4a6b;background:#f8f9fc;}
       </button>
       <div class="rec-stat"><span class="rs-val" id="rec-samples">0</span><span class="rs-lbl">수집 레코드</span></div>
       <div class="rec-stat"><span class="rs-val" id="rec-time">0:00</span><span class="rs-lbl">경과 시간</span></div>
+      <div class="exp-group">
+        <button class="btn" id="exp-csv" onclick="exportCSV()" disabled>
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2v8M5 7l3 3 3-3"/><path d="M3 13h10"/></svg>
+          CSV
+        </button>
+        <button class="btn" id="exp-xlsx" onclick="exportXLSX()" disabled>
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2v8M5 7l3 3 3-3"/><path d="M3 13h10"/></svg>
+          XLSX
+        </button>
+        <button class="btn" id="exp-clear" onclick="clearData()" disabled>초기화</button>
+      </div>
     </div>
     <!-- r4-D: 그래프 워크스페이스 — 기본 1개, ⊕로 추가(최대 4), 헤더 드래그 도킹(1행 2열) -->
     <div class="workspace" id="workspace"></div>
@@ -1325,8 +1319,6 @@ function pushData(sid, values){
   sensor?.axes.forEach((ax,i)=>row[ax]=values[i]??'');
   S.recorded.push(row);
   document.getElementById('rec-samples').textContent=S.recorded.length;
-  document.getElementById('rec-count').textContent=S.recorded.length;
-  updateExpRange();
   setExportEnabled(true);
 
   // 롱텀: 간격마다 자동 저장
@@ -2118,12 +2110,7 @@ function resetLiveBadges(){
   });
 }
 
-function updateExpRange(){
-  if(!S.recorded.length){document.getElementById('exp-range').textContent='—';return;}
-  const first=S.recorded[0].timestamp?.slice(11,19)??'';
-  const last=S.recorded[S.recorded.length-1].timestamp?.slice(11,19)??'';
-  document.getElementById('exp-range').textContent=`${first} ~ ${last}`;
-}
+// (저장 개수·범위 표시는 rec-bar 통합으로 제거됨)
 
 function autoSaveLongterm(){
   const seg=S.recorded.filter(r=>r.elapsed_s!==undefined);
@@ -2218,8 +2205,6 @@ function clearData(){
   resetLiveBadges();
   document.getElementById('rec-samples').textContent=0;
   document.getElementById('rec-time').textContent='0:00';
-  document.getElementById('rec-count').textContent=0;
-  document.getElementById('exp-range').textContent='—';
   setExportEnabled(false);
   log('데이터 초기화','sys');
 }
@@ -3082,11 +3067,14 @@ void loop() {
 
   if (active[0] && IMU.accelerationAvailable()) {
     float ax,ay,az; IMU.readAcceleration(ax,ay,az);
-    sendData("imu_acc,"+String(ax*9.81,3)+","+String(ay*9.81,3)+","+String(az*9.81,3)+","+String(now), chImuAcc);
+    // BMI270 축 보정: 보드 실크(+Y=USB 방향) 기준 회전 — 매달면 Ay ≈ -9.8 m/s²
+    float bx=-ay, by=ax, bz=az;
+    sendData("imu_acc,"+String(bx*9.81,3)+","+String(by*9.81,3)+","+String(bz*9.81,3)+","+String(now), chImuAcc);
   }
   if (active[1] && IMU.gyroscopeAvailable()) {
     float gx,gy,gz; IMU.readGyroscope(gx,gy,gz);
-    sendData("imu_gyr,"+String(gx,2)+","+String(gy,2)+","+String(gz,2)+","+String(now), chImuGyr);
+    float bgx=-gy, bgy=gx, bgz=gz;   // 자이로도 동일 회전 보정
+    sendData("imu_gyr,"+String(bgx,2)+","+String(bgy,2)+","+String(bgz,2)+","+String(now), chImuGyr);
   }
   if (active[2] && IMU.magneticFieldAvailable()) {
     float mx,my,mz; IMU.readMagneticField(mx,my,mz);
