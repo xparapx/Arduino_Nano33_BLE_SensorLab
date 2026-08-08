@@ -189,6 +189,7 @@ header{display:flex;align-items:center;justify-content:space-between;padding:0 1
   background:var(--bg3);color:var(--text2);cursor:pointer;font-size:13px;line-height:1;
   display:flex;align-items:center;justify-content:center;padding:0;}
 .g-hdr .g-btn:hover{color:var(--text);border-color:var(--border2);}
+.g-hdr .g-btn svg{width:15px;height:15px;}
 /* r4-B: 축 칩은 캔버스 밖 전용 레이아웃 영역 — 오버레이 금지, 겹침 0 */
 .g-body{display:grid;grid-template-columns:36px 1fr;align-items:stretch;}
 .g-body.hasy2{grid-template-columns:36px 1fr 36px;}
@@ -900,7 +901,14 @@ function buildGraphCard(g){
         <div><div class="chart-title" id="gt-${gid}"></div></div>
       </div>
       <div class="g-btns">
-        <button class="g-btn" title="Y축 추가 · 그래프 영역 추가" onclick="event.stopPropagation();graphPlusMenu('${gid}',event)">⊕</button>
+        <button class="g-btn" title="Y축 추가 · 그래프 영역 추가" onclick="event.stopPropagation();graphPlusMenu('${gid}',event)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M4 20h16"/>
+            <path d="M6 19V8M3.8 10.2 6 7.4l2.2 2.8"/>
+            <path d="M18 19V8M15.8 10.2 18 7.4l2.2 2.8"/>
+            <path d="M12 10.5v6M9 13.5h6"/>
+          </svg>
+        </button>
         <button class="g-btn" id="gx-${gid}" title="그래프 영역 제거" onclick="event.stopPropagation();removeGraph('${gid}')">✕</button>
       </div>
     </div>
