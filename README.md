@@ -4,9 +4,8 @@
 
 🔗 **프로젝트개요:** https://xparapx.github.io/Arduino_Nano33_BLE_SensorLab/  
 🖥️ **WebUI:** https://xparapx.github.io/Arduino_Nano33_BLE_SensorLab/dashboard.html  
+📱 **phyphox 연동:** https://xparapx.github.io/Arduino_Nano33_BLE_SensorLab/phyphox.html  
 📘 **매뉴얼:** https://xparapx.github.io/Arduino_Nano33_BLE_SensorLab/manual.html  
-📱 **phyphox 연동:** https://xparapx.github.io/Arduino_Nano33_BLE_SensorLab/phyphox.html
-
 `Nano 33 BLE Sense` · `nRF52840` · `Web Serial` · `Web Bluetooth` · `phyphox` · `Chart.js` · `CSV·XLSX`
 
 ---
