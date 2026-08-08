@@ -1,11 +1,11 @@
-# Nano 33 BLE WebUI — 센서 대시보드 (USB · BLE · phyphox)
+# Nano 33 BLE SensorLab — 센서 실험실 (USB · WebUI · phyphox)
 
-> Arduino Nano 33 BLE Sense의 **내장 센서**를 USB Serial 또는 BLE로 **브라우저 대시보드 또는 스마트폰 phyphox 앱에** 실시간 표시·기록·내보내기 하는 프로젝트. 학생이 상황에 따라 **USB Serial / BLE WebUI / phyphox(모바일)를 골라** 쓸 수 있다. 고등학교 SW·AI·물리 실습용.
+> Arduino Nano 33 BLE Sense의 **내장 센서**를 USB Serial·Web Bluetooth **브라우저 대시보드 또는 스마트폰 phyphox 앱에** 실시간 표시·기록·내보내기 하는 프로젝트. 학생이 상황에 따라 **USB Serial / BLE WebUI / phyphox(모바일)를 골라** 쓸 수 있다. 고등학교 SW·AI·물리 실습용.
 
-🔗 **프로젝트개요:** https://xparapx.github.io/Arduino_Nano33_BLE_WebUI_Demo/  
-🖥️ **WebUI:** https://xparapx.github.io/Arduino_Nano33_BLE_WebUI_Demo/dashboard.html  
-📘 **매뉴얼:** https://xparapx.github.io/Arduino_Nano33_BLE_WebUI_Demo/manual.html  
-📱 **phyphox 연동:** https://xparapx.github.io/Arduino_Nano33_BLE_WebUI_Demo/phyphox.html
+🔗 **프로젝트개요:** https://xparapx.github.io/Arduino_Nano33_BLE_SensorLab/  
+🖥️ **WebUI:** https://xparapx.github.io/Arduino_Nano33_BLE_SensorLab/dashboard.html  
+📘 **매뉴얼:** https://xparapx.github.io/Arduino_Nano33_BLE_SensorLab/manual.html  
+📱 **phyphox 연동:** https://xparapx.github.io/Arduino_Nano33_BLE_SensorLab/phyphox.html
 
 `Nano 33 BLE Sense` · `nRF52840` · `Web Serial` · `Web Bluetooth` · `phyphox` · `Chart.js` · `CSV·XLSX`
 
@@ -54,7 +54,7 @@ Nano 33 BLE Sense가 내장 센서(가속도·온습도·기압·광/제스처 �
 ## 05. 저장소 구조
 
 ```
-Arduino_Nano33_BLE_WebUI_Demo/
+Arduino_Nano33_BLE_SensorLab/
 ├─ firmware/                          # 보드 펌웨어 (.ino)
 │  ├─ nano33ble_dashboard_rev1.ino    # Rev1 (HTS221·LSM9DS1)
 │  ├─ nano33ble_dashboard_rev2.ino    # Rev2 (HS300x·BMI270)
@@ -83,7 +83,7 @@ Arduino_Nano33_BLE_WebUI_Demo/
 ## 실행 방법
 
 1. **펌웨어 업로드** — 보드 리비전에 맞는 `firmware/nano33ble_dashboard_revN.ino`를 Arduino IDE에서 업로드.
-2. **대시보드 열기** — 개요 페이지(`.../Arduino_Nano33_BLE_WebUI_Demo/`)의 "대시보드 열기" 버튼, 또는 직접 `.../dashboard.html` 접속. (로컬 `file://`로 열면 BLE가 막히니 Pages 주소를 사용.)
+2. **대시보드 열기** — 개요 페이지(`.../Arduino_Nano33_BLE_SensorLab/`)의 "대시보드 열기" 버튼, 또는 직접 `.../dashboard.html` 접속. (로컬 `file://`로 열면 BLE가 막히니 Pages 주소를 사용.)
 3. **연결**
    - **USB**: `USB 연결` → 포트 선택. 부팅 메시지에서 DEVICE ID를 자동 추출해 BLE 연결창에 미리 채워줌.
    - **BLE**: `BLE 연결` → 장치 선택(`BLE-XXXX`). 무선 동작 시 보드를 PC 30cm 이내, 배터리 3.3V 이상 유지.
@@ -91,7 +91,7 @@ Arduino_Nano33_BLE_WebUI_Demo/
 
 ## phyphox 모바일 연동
 
-> PC 없이 **스마트폰만으로** 센서 데이터를 수집·시각화·내보내기 하는 모드. 안내 페이지: https://xparapx.github.io/Arduino_Nano33_BLE_WebUI_Demo/phyphox.html
+> PC 없이 **스마트폰만으로** 센서 데이터를 수집·시각화·내보내기 하는 모드. 안내 페이지: https://xparapx.github.io/Arduino_Nano33_BLE_SensorLab/phyphox.html
 
 1. **펌웨어 업로드** — `firmware/nano33ble_phyphox_rev2.ino` 업로드. phyphoxBLE 라이브러리 사용, **WebUI 펌웨어와 택일**(동시 사용 불가 — 모드를 바꿀 때마다 해당 펌웨어를 다시 업로드).
 2. **앱 설치** — 스마트폰에 [phyphox 앱](https://phyphox.org/download/) 설치 (iOS/Android 무료).
@@ -99,22 +99,22 @@ Arduino_Nano33_BLE_WebUI_Demo/
 
 | 실험 | QR | 링크 |
 |---|---|---|
-| 가속도 | <img src="docs/phyphox/qr/01_acceleration.png" width="90"> | [01_acceleration.phyphox](https://xparapx.github.io/Arduino_Nano33_BLE_WebUI_Demo/phyphox/01_acceleration.phyphox) |
-| 자이로스코프 | <img src="docs/phyphox/qr/02_gyroscope.png" width="90"> | [02_gyroscope.phyphox](https://xparapx.github.io/Arduino_Nano33_BLE_WebUI_Demo/phyphox/02_gyroscope.phyphox) |
-| 자기장 | <img src="docs/phyphox/qr/03_magnetometer.png" width="90"> | [03_magnetometer.phyphox](https://xparapx.github.io/Arduino_Nano33_BLE_WebUI_Demo/phyphox/03_magnetometer.phyphox) |
-| 환경 (기압·온도·습도) | <img src="docs/phyphox/qr/04_environment.png" width="90"> | [04_environment.phyphox](https://xparapx.github.io/Arduino_Nano33_BLE_WebUI_Demo/phyphox/04_environment.phyphox) |
-| 색상 (RGB) | <img src="docs/phyphox/qr/05_color.png" width="90"> | [05_color.phyphox](https://xparapx.github.io/Arduino_Nano33_BLE_WebUI_Demo/phyphox/05_color.phyphox) |
-| 조도 | <img src="docs/phyphox/qr/06_illuminance.png" width="90"> | [06_illuminance.phyphox](https://xparapx.github.io/Arduino_Nano33_BLE_WebUI_Demo/phyphox/06_illuminance.phyphox) |
-| 제스처 | <img src="docs/phyphox/qr/07_gesture.png" width="90"> | [07_gesture.phyphox](https://xparapx.github.io/Arduino_Nano33_BLE_WebUI_Demo/phyphox/07_gesture.phyphox) |
-| 근접 | <img src="docs/phyphox/qr/08_proximity.png" width="90"> | [08_proximity.phyphox](https://xparapx.github.io/Arduino_Nano33_BLE_WebUI_Demo/phyphox/08_proximity.phyphox) |
-| 음량 | <img src="docs/phyphox/qr/09_sound.png" width="90"> | [09_sound.phyphox](https://xparapx.github.io/Arduino_Nano33_BLE_WebUI_Demo/phyphox/09_sound.phyphox) |
-| 외장 센서 (아날로그) | <img src="docs/phyphox/qr/10_analog_external.png" width="90"> | [10_analog_external.phyphox](https://xparapx.github.io/Arduino_Nano33_BLE_WebUI_Demo/phyphox/10_analog_external.phyphox) |
-| **전체 10종 (zip)** | <img src="docs/phyphox/qr/all_experiments.png" width="90"> | [nano33_experiments.zip](https://xparapx.github.io/Arduino_Nano33_BLE_WebUI_Demo/phyphox/nano33_experiments.zip) |
+| 가속도 | <img src="docs/phyphox/qr/01_acceleration.png" width="90"> | [01_acceleration.phyphox](https://xparapx.github.io/Arduino_Nano33_BLE_SensorLab/phyphox/01_acceleration.phyphox) |
+| 자이로스코프 | <img src="docs/phyphox/qr/02_gyroscope.png" width="90"> | [02_gyroscope.phyphox](https://xparapx.github.io/Arduino_Nano33_BLE_SensorLab/phyphox/02_gyroscope.phyphox) |
+| 자기장 | <img src="docs/phyphox/qr/03_magnetometer.png" width="90"> | [03_magnetometer.phyphox](https://xparapx.github.io/Arduino_Nano33_BLE_SensorLab/phyphox/03_magnetometer.phyphox) |
+| 환경 (기압·온도·습도) | <img src="docs/phyphox/qr/04_environment.png" width="90"> | [04_environment.phyphox](https://xparapx.github.io/Arduino_Nano33_BLE_SensorLab/phyphox/04_environment.phyphox) |
+| 색상 (RGB) | <img src="docs/phyphox/qr/05_color.png" width="90"> | [05_color.phyphox](https://xparapx.github.io/Arduino_Nano33_BLE_SensorLab/phyphox/05_color.phyphox) |
+| 조도 | <img src="docs/phyphox/qr/06_illuminance.png" width="90"> | [06_illuminance.phyphox](https://xparapx.github.io/Arduino_Nano33_BLE_SensorLab/phyphox/06_illuminance.phyphox) |
+| 제스처 | <img src="docs/phyphox/qr/07_gesture.png" width="90"> | [07_gesture.phyphox](https://xparapx.github.io/Arduino_Nano33_BLE_SensorLab/phyphox/07_gesture.phyphox) |
+| 근접 | <img src="docs/phyphox/qr/08_proximity.png" width="90"> | [08_proximity.phyphox](https://xparapx.github.io/Arduino_Nano33_BLE_SensorLab/phyphox/08_proximity.phyphox) |
+| 음량 | <img src="docs/phyphox/qr/09_sound.png" width="90"> | [09_sound.phyphox](https://xparapx.github.io/Arduino_Nano33_BLE_SensorLab/phyphox/09_sound.phyphox) |
+| 외장 센서 (아날로그) | <img src="docs/phyphox/qr/10_analog_external.png" width="90"> | [10_analog_external.phyphox](https://xparapx.github.io/Arduino_Nano33_BLE_SensorLab/phyphox/10_analog_external.phyphox) |
+| **전체 10종 (zip)** | <img src="docs/phyphox/qr/all_experiments.png" width="90"> | [nano33_experiments.zip](https://xparapx.github.io/Arduino_Nano33_BLE_SensorLab/phyphox/nano33_experiments.zip) |
 
 **카톡·문자로 배포할 때** — 링크의 `https://`를 `phyphox://`로 바꿔 보내면 받는 쪽에서 앱이 바로 열린다. 예:
 
 ```
-phyphox://xparapx.github.io/Arduino_Nano33_BLE_WebUI_Demo/phyphox/01_acceleration.phyphox
+phyphox://xparapx.github.io/Arduino_Nano33_BLE_SensorLab/phyphox/01_acceleration.phyphox
 ```
 
 > **주의** — `.phyphox` **파일을 메신저로 직접 전송하면 안 됨**(Android MIME 문제로 열리지 않음). 반드시 QR 또는 링크로 배포.
@@ -137,7 +137,7 @@ phyphox://xparapx.github.io/Arduino_Nano33_BLE_WebUI_Demo/phyphox/01_acceleratio
 | 연결됐는데 차트 정지 | 차트 갱신이 수집 상태가 아닌 **연결 상태**에 묶여야 함 |
 | 무선 중 간헐 끊김 | 거리 단축(30cm), 배터리 3.3V 이상, BLE.poll() 호출 확인 |
 
-상세 진단·운용 절차는 [매뉴얼](https://xparapx.github.io/Arduino_Nano33_BLE_WebUI_Demo/manual.html) 참조.
+상세 진단·운용 절차는 [매뉴얼](https://xparapx.github.io/Arduino_Nano33_BLE_SensorLab/manual.html) 참조.
 
 ## 작업 로그
 
