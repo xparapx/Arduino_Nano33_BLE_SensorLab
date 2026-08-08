@@ -139,6 +139,17 @@
     color:var(--ink);overflow:auto;max-height:520px;margin-bottom:20px;white-space:pre}
 
 
+  /* ===== 센서종류별 QR 토글 ===== */
+  .qrtog{margin-top:4px;background:var(--panel);border:1px solid var(--line);
+    border-radius:14px;padding:0 24px}
+  .qrtog>summary{cursor:pointer;font-weight:700;font-size:15px;list-style:none;
+    display:flex;align-items:center;gap:10px;padding:16px 0}
+  .qrtog>summary::-webkit-details-marker{display:none}
+  .qrtog>summary::before{content:"\25B8";color:var(--teal);transition:transform .15s}
+  .qrtog[open]>summary::before{transform:rotate(90deg)}
+  .qrtog .qr-grid{padding:4px 0 22px}
+  .qrtog .qr-card{background:var(--panel2)}
+
   /* ===== FAQ ===== */
   .faq{background:var(--panel);border:1px solid var(--line);border-radius:14px;
     padding:6px 24px}
@@ -174,7 +185,7 @@
       <span class="chip">iOS · Android</span>
     </div>
     <div class="cta-row">
-      <a class="cta" href="#qr">📱 전체 일괄 설치 QR</a>
+      <a class="cta" href="#qr">📱 통합 설치 QR</a>
       <a class="cta ghost" href="index.html">← 프로젝트 개요</a>
     </div>
   </div>
@@ -429,7 +440,7 @@ void loop() {
 
 <section id="qr">
   <div class="wrap">
-    <div class="sec-head"><span class="sec-num">03</span><h2>전체 일괄 설치 (권장)</h2></div>
+    <div class="sec-head"><span class="sec-num">03</span><h2>모든 내장 센서 통합 설치</h2></div>
     <div class="allin">
       <img src="phyphox/qr/all_experiments.png" alt="전체 실험 11종 일괄 설치 QR">
       <div class="txt">
@@ -445,7 +456,9 @@ void loop() {
 <section>
   <div class="wrap">
     <div class="sec-head"><span class="sec-num">04</span><h2>센서종류별 QR</h2></div>
-    <p class="sec-sub">특정 실험 하나만 설치하려면 아래 개별 QR을 사용하세요.</p>
+    <p class="sec-sub">특정 실험 하나만 설치하려면 개별 QR을 사용하세요.</p>
+    <details class="qrtog">
+    <summary>센서종류별 QR 갤러리 펼치기 (11종)</summary>
     <div class="qr-grid">
       <div class="qr-card">
         <img src="phyphox/qr/01_acceleration.png" alt="가속도 QR">
@@ -514,6 +527,7 @@ void loop() {
         <a class="fl" href="phyphox/11_analog_external.phyphox">11_analog_external.phyphox</a>
       </div>
     </div>
+    </details>
   </div>
 </section>
 
@@ -521,7 +535,7 @@ void loop() {
   <div class="wrap">
     <div class="sec-head"><span class="sec-num">05</span><h2>카톡·문자로 배포하기</h2></div>
     <div class="note">
-      <b>링크의 <code>https://</code>를 <code>phyphox://</code>로 바꿔 보내면</b> 받는 사람의 phyphox 앱이 바로 열립니다. 아래는 전체 일괄 설치 링크 — 복사해서 그대로 붙여넣으세요. (개별 실험도 같은 방식: 04 섹션 링크 주소에서 <code>https://</code>만 바꾸면 됩니다.)
+      <b>링크의 <code>https://</code>를 <code>phyphox://</code>로 바꿔 보내면</b> 받는 사람의 phyphox 앱이 바로 열립니다. 아래는 통합 설치 링크 — 복사해서 그대로 붙여넣으세요. (개별 실험도 같은 방식: 04 섹션 링크 주소에서 <code>https://</code>만 바꾸면 됩니다.)
       <div class="copyrow">
         <div class="codebox" id="pplink">phyphox://xparapx.github.io/Arduino_Nano33_BLE_SensorLab/phyphox/nano33_experiments.zip</div>
         <button class="copybtn" onclick="copyLink(this)">복사</button>
