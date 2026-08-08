@@ -187,6 +187,14 @@ header{display:flex;align-items:center;justify-content:space-between;padding:0 1
 .lv-num{font-weight:700;font-family:'JetBrains Mono','Fira Code',monospace;}
 .lv-lbl{font-size:9px;color:var(--text3);}
 .chart-body{padding:8px 12px 12px;}
+.chart-body canvas{touch-action:pan-y;}  /* 모바일: 세로 스크롤 유지, 가로 드래그는 ROI 선택 */
+
+/* ── ROI 선택 표시줄 ── */
+.roi-bar{margin-top:6px;padding:8px 10px;border-radius:var(--r);
+  background:rgba(61,126,255,.08);border:1px solid rgba(61,126,255,.3);
+  font-size:11px;color:var(--text2);line-height:1.6;}
+.roi-bar b{color:var(--accent2);font-family:'JetBrains Mono','Fira Code',monospace;font-weight:600;}
+.roi-btns{display:flex;gap:5px;margin-top:6px;}
 
 /* ── 시리얼 로그 ── */
 .log-panel{height:108px;background:var(--bg);border-top:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;}
@@ -233,6 +241,24 @@ body.light .code-block{color:#3a4a6b;background:#f8f9fc;}
 .ide-info a{color:var(--accent2);text-decoration:none;}
 .ide-info a:hover{text-decoration:underline;}
 .xs{font-size:10px;color:var(--text3);}
+
+/* 저장된 보드 칩 */
+.chip-list{display:flex;flex-wrap:wrap;gap:5px;}
+.bchip{display:inline-flex;align-items:center;gap:6px;padding:5px 8px 5px 10px;
+  border-radius:20px;border:1px solid rgba(167,139,250,.35);background:rgba(167,139,250,.08);
+  color:var(--text);font-size:11px;font-weight:600;cursor:pointer;transition:all .13s;user-select:none;}
+.bchip:hover{background:rgba(167,139,250,.18);}
+.bchip .bid{font-family:'JetBrains Mono','Fira Code',monospace;font-size:10px;color:var(--text3);font-weight:400;}
+.bchip .bx{width:14px;height:14px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font-size:10px;color:var(--text3);background:transparent;border:none;cursor:pointer;line-height:1;}
+.bchip .bx:hover{color:var(--red);background:rgba(255,79,106,.15);}
+
+/* 고급 접이식 */
+details.adv summary{cursor:pointer;font-size:11px;color:var(--text3);list-style:none;user-select:none;}
+details.adv summary::-webkit-details-marker{display:none;}
+details.adv summary::before{content:'▸ ';color:var(--text3);}
+details.adv[open] summary::before{content:'▾ ';}
+details.adv summary:hover{color:var(--text2);}
 
 /* 연결 모드 버튼 */
 .conn-mode-btn{
@@ -318,39 +344,23 @@ body.light .code-block{color:#3a4a6b;background:#f8f9fc;}
     <div id="panel-ble" style="display:none;">
       <div class="ble-pin-wrap">
 
-        <!-- DEVICE ID 안내 -->
-        <div style="background:rgba(167,139,250,0.08);border:1px solid rgba(167,139,250,0.25);
-             border-radius:var(--r);padding:9px 11px;margin-bottom:8px;">
-          <div style="font-size:10px;font-weight:700;color:var(--purple);margin-bottom:5px;letter-spacing:.5px;">
-            DEVICE ID 확인 방법
-          </div>
-          <div class="xs" style="color:var(--text2);line-height:1.7;">
-            최초 1회: USB 연결 → 시리얼 모니터<br>
-            <span style="font-family:var(--font);color:var(--green);"># DEVICE ID : A3F7</span><br>
-            보드에 스티커 부착 → 이후 무선 사용
-          </div>
+        <!-- 기본 흐름: ID 입력 없이 연결 → 선택창에는 우리 보드(BLE-*)만 표시 -->
+        <button class="btn primary full" onclick="connectBLE()" id="ble-connect-btn"
+          style="width:100%;padding:9px;margin-bottom:6px;">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" style="width:13px;height:13px;">
+            <path d="M4 4l8 8M12 4l-8 8M8 1l4 3-4 3V1zM8 15l-4-3 4-3v6z"/>
+          </svg>
+          BLE 연결
+        </button>
+        <div class="xs" style="margin-bottom:8px;color:var(--text2);line-height:1.6;">
+          선택창에서 <span style="color:var(--purple);">BLE-XXXX</span> 보드를 고르면 ID를 자동으로
+          읽고, 처음 보는 보드면 별명을 물어봅니다.
         </div>
 
-        <!-- ID 입력 -->
-        <div style="margin-bottom:6px;">
-          <div class="xs" style="margin-bottom:4px;color:var(--text2);">보드 DEVICE ID (4자리)</div>
-          <input type="text" id="ble-pin" maxlength="4" placeholder="예) A3F7"
-            style="width:100%;background:var(--bg3);border:1px solid var(--border2);
-                   color:var(--text);border-radius:var(--r);padding:10px;
-                   font-size:20px;font-weight:700;text-align:center;
-                   letter-spacing:8px;outline:none;font-family:var(--font);
-                   text-transform:uppercase;margin-bottom:6px;"
-            oninput="this.value=this.value.toUpperCase().replace(/[^0-9A-F]/g,'');
-                     const v=this.value.padEnd(4,'?').slice(0,4);
-                     document.getElementById('ble-name-preview').textContent='BLE-'+v;"
-            onkeydown="if(event.key==='Enter')connectBLE()">
-          <button class="btn primary full" onclick="connectBLE()" id="ble-connect-btn"
-            style="width:100%;padding:9px;">
-            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" style="width:13px;height:13px;">
-              <path d="M4 4l8 8M12 4l-8 8M8 1l4 3-4 3V1zM8 15l-4-3 4-3v6z"/>
-            </svg>
-            BLE 연결
-          </button>
+        <!-- 저장된 보드 (별명 칩) -->
+        <div id="ble-known-wrap" style="display:none;margin-bottom:8px;">
+          <div class="xs" style="margin-bottom:4px;color:var(--text2);">저장된 보드 — 클릭하면 재연결</div>
+          <div class="chip-list" id="ble-known"></div>
         </div>
 
         <!-- 연결된 장치 정보 -->
@@ -362,12 +372,38 @@ body.light .code-block{color:#3a4a6b;background:#f8f9fc;}
 
         <button class="btn full" id="ble-disconnect-btn" onclick="disconnectBLE()" disabled
           style="font-size:11px;">BLE 연결 해제</button>
+
+        <!-- 고급: DEVICE ID 수동 지정 (비상용) -->
+        <details class="adv" id="ble-advanced" style="margin-top:8px;">
+          <summary>고급 — DEVICE ID 수동 지정</summary>
+          <div style="padding:8px 0 2px;">
+            <div class="xs" style="color:var(--text2);line-height:1.7;margin-bottom:6px;">
+              USB 연결 → 시리얼 모니터의
+              <span style="font-family:var(--font);color:var(--green);"># DEVICE ID : A3F7</span>
+              4자리를 입력하면 그 보드만 정확 필터로 찾습니다.
+            </div>
+            <input type="text" id="ble-pin" maxlength="4" placeholder="예) A3F7"
+              style="width:100%;background:var(--bg3);border:1px solid var(--border2);
+                     color:var(--text);border-radius:var(--r);padding:8px;
+                     font-size:16px;font-weight:700;text-align:center;
+                     letter-spacing:6px;outline:none;font-family:var(--font);
+                     text-transform:uppercase;margin-bottom:6px;"
+              oninput="this.value=this.value.toUpperCase().replace(/[^0-9A-F]/g,'');
+                       const v=this.value.padEnd(4,'?').slice(0,4);
+                       document.getElementById('ble-name-preview').textContent='BLE-'+v;"
+              onkeydown="if(event.key==='Enter')connectBLEManual()">
+            <button class="btn full" onclick="connectBLEManual()" style="font-size:11px;">ID로 연결</button>
+            <div class="xs" style="margin-top:6px;">
+              장치명: <span style="font-family:var(--font);color:var(--purple);" id="ble-name-preview">BLE-????</span>
+            </div>
+          </div>
+        </details>
       </div>
 
       <div class="xs" style="margin-top:8px;padding:7px 9px;background:var(--bg3);
            border-radius:6px;border:1px solid var(--border);line-height:1.7;color:var(--text2);">
-        BLE 장치명: <span style="font-family:var(--font);color:var(--purple);" id="ble-name-preview">BLE-????</span><br>
-        ※ Chrome / Edge 필요 &nbsp;·&nbsp; 20Hz 이하 권장
+        ※ Chrome / Edge 필요 &nbsp;·&nbsp; 20Hz 이하 권장<br>
+        ※ 보안 정책상 <b>최초 1회는 선택창에서 장치를 골라야</b> 하며, 별명은 이후 재연결을 1클릭으로 만듭니다.
       </div>
     </div>
   </div>
@@ -469,6 +505,14 @@ body.light .code-block{color:#3a4a6b;background:#f8f9fc;}
     </div>
     <button class="btn full" id="exp-clear" onclick="clearData()" disabled style="margin-top:5px;font-size:11px;">데이터 초기화</button>
     <div class="xs" style="margin-top:5px;text-align:center;">저장: <span id="rec-count">0</span>개 · <span id="exp-range">—</span></div>
+    <div class="roi-bar" id="roi-bar" style="display:none;">
+      선택 구간: <b id="roi-range">—</b> · <span id="roi-n">0</span>개 샘플
+      <div class="roi-btns">
+        <button class="btn full" onclick="exportROI()" style="font-size:11px;">구간 CSV</button>
+        <button class="btn full" onclick="clearRoi()" style="font-size:11px;">해제</button>
+      </div>
+    </div>
+    <div class="xs" style="margin-top:5px;text-align:center;" title="차트 버퍼는 롤링이라 화면에 보이는 구간만 선택할 수 있습니다.">수집 정지 후 차트를 가로로 드래그하면 구간 선택</div>
   </div>
 
   <!-- 데모 -->
@@ -581,7 +625,7 @@ const SENSORS = [
 // ═══════════════════════════════════════════════
 const S = {
   port:null, writer:null, connected:false,
-  recording:false, chartLive:false, demoMode:false, demoTimer:null,
+  recording:false, demoMode:false, demoTimer:null,
   active:new Set(),
   hz:1, bufSize:10, longTermMin:0,
   ltTimer:null, ltSegStart:null,
@@ -671,7 +715,7 @@ function setSR(el, type){
 function trimAllBufs(){
   Object.keys(S.chartData).forEach(id=>{
     const cd=S.chartData[id];
-    while(cd.labels.length>S.bufSize){cd.labels.shift();cd.datasets.forEach(d=>d.data.shift());}
+    while(cd.labels.length>S.bufSize){cd.labels.shift();if(cd.elapsed)cd.elapsed.shift();cd.datasets.forEach(d=>d.data.shift());}
   });
 }
 
@@ -729,6 +773,7 @@ function rebuildCharts(){
     if(S.charts[s.id]) return;
     S.chartData[s.id]={
       labels:[],
+      elapsed:[],   // 각 포인트의 elapsed_s (ROI 픽셀→시간 환산용 병렬 배열)
       datasets:s.axes.map((ax,i)=>({
         label:ax, data:[],
         borderColor:colorVar(s.color,i,s.axes.length),
@@ -807,6 +852,8 @@ function rebuildCharts(){
         interaction:{mode:'index',intersect:false}
       }
     });
+    S.charts[s.id].$sid=s.id;                                   // ROI 플러그인용 역참조
+    attachRoiDrag(document.getElementById('cv-'+s.id), s.id);   // ROI 드래그 선택
   });
 }
 
@@ -826,44 +873,181 @@ function lighten(hex,amt){
 function pushData(sid, values){
   const cd=S.chartData[sid]; if(!cd) return;
 
-  // 차트 업데이트 (chartLive 상태와 무관하게 연결 중엔 표시)
-  if(S.chartLive){
-    const lbl=new Date().toLocaleTimeString('ko-KR',{hour12:false});
-    cd.labels.push(lbl);
-    values.forEach((v,i)=>{if(cd.datasets[i]) cd.datasets[i].data.push(v);});
-    while(cd.labels.length>S.bufSize){cd.labels.shift();cd.datasets.forEach(d=>d.data.shift());}
-    if(S.charts[sid]) S.charts[sid].update('none');
-    values.forEach((v,i)=>{
-      const el=document.getElementById(`lvn-${sid}-${i}`);
-      if(el) el.textContent=typeof v==='number'?v.toFixed(2):v;
-    });
-  }
+  // 현재값 숫자 배지 — 연결/데모 중 항상 갱신 (라이브 리드아웃, MBL 관례)
+  values.forEach((v,i)=>{
+    const el=document.getElementById(`lvn-${sid}-${i}`);
+    if(el) el.textContent=typeof v==='number'?v.toFixed(2):v;
+  });
 
-  // 레코드 저장 (recording 상태일 때만)
-  if(S.recording){
-    const sensor=SENSORS.find(s=>s.id===sid);
-    const now=new Date();
-    const row={
-      timestamp: now.toISOString(),
-      elapsed_s: S.recActualStart ? +((now-S.recActualStart)/1000).toFixed(2) : 0,
-      sensor: sensor?.name??sid,
-    };
-    sensor?.axes.forEach((ax,i)=>row[ax]=values[i]??'');
-    S.recorded.push(row);
-    document.getElementById('rec-samples').textContent=S.recorded.length;
-    document.getElementById('rec-count').textContent=S.recorded.length;
-    updateExpRange();
-    setExportEnabled(true);
+  // 차트·레코드는 수집(레코드) 중에만 진행 — 수집 시작 전 차트는 정지 상태 (MBL 관례)
+  if(!S.recording) return;
 
-    // 롱텀: 간격마다 자동 저장
-    if(S.longTermMin>0 && S.ltSegStart){
-      const elapsed=(Date.now()-S.ltSegStart)/1000/60;
-      if(elapsed>=S.longTermMin){
-        autoSaveLongterm();
-        S.ltSegStart=Date.now();
-      }
+  const now=new Date();
+  const elapsed=S.recActualStart ? +((now-S.recActualStart)/1000).toFixed(2) : 0;
+
+  // 차트 append (elapsed_s를 병렬 배열로 저장 — ROI 픽셀→시간 환산용)
+  const lbl=now.toLocaleTimeString('ko-KR',{hour12:false});
+  cd.labels.push(lbl);
+  cd.elapsed.push(elapsed);
+  values.forEach((v,i)=>{if(cd.datasets[i]) cd.datasets[i].data.push(v);});
+  while(cd.labels.length>S.bufSize){cd.labels.shift();cd.elapsed.shift();cd.datasets.forEach(d=>d.data.shift());}
+  if(S.charts[sid]) S.charts[sid].update('none');
+
+  // 레코드 저장
+  const sensor=SENSORS.find(s=>s.id===sid);
+  const row={
+    timestamp: now.toISOString(),
+    elapsed_s: elapsed,
+    sensor: sensor?.name??sid,
+  };
+  sensor?.axes.forEach((ax,i)=>row[ax]=values[i]??'');
+  S.recorded.push(row);
+  document.getElementById('rec-samples').textContent=S.recorded.length;
+  document.getElementById('rec-count').textContent=S.recorded.length;
+  updateExpRange();
+  setExportEnabled(true);
+
+  // 롱텀: 간격마다 자동 저장
+  if(S.longTermMin>0 && S.ltSegStart){
+    const ltElapsed=(Date.now()-S.ltSegStart)/1000/60;
+    if(ltElapsed>=S.longTermMin){
+      autoSaveLongterm();
+      S.ltSegStart=Date.now();
     }
   }
+}
+
+// 모든 차트 비우기 (수집 시작·데이터 초기화 시)
+function resetCharts(){
+  Object.keys(S.chartData).forEach(id=>{
+    const cd=S.chartData[id];
+    cd.labels.length=0;
+    if(cd.elapsed) cd.elapsed.length=0;
+    cd.datasets.forEach(d=>d.data.length=0);
+    if(S.charts[id]) S.charts[id].update('none');
+  });
+}
+
+// ═══════════════════════════════════════════════
+// ROI 드래그 선택 → 구간 CSV (기능 4)
+// ═══════════════════════════════════════════════
+// 수집 정지 상태 + 데이터 존재 시, 차트 위 가로 드래그로 시간 구간 선택.
+// 선택은 [t1,t2] 시간 기준 — 드래그한 차트뿐 아니라 전 센서 행을 내보낸다 (MBL 관례).
+// 주의: 차트 버퍼는 롤링(S.bufSize)이라 화면에 보이는 구간만 선택 가능.
+S.roi={show:false,t1:0,t2:0};
+S.roiMeta=null;
+let _roiDrag=null;   // {sid,x0} 드래그 진행 상태
+
+// Chart.js 커스텀 플러그인 — 선택 구간 반투명 하이라이트
+const roiPlugin={
+  id:'roiHighlight',
+  afterDatasetsDraw(chart){
+    if(!S.roi.show) return;
+    const sid=chart.$sid; const cd=S.chartData[sid];
+    if(!cd||!cd.elapsed||!cd.elapsed.length) return;
+    // elapsed[](오름차순)에서 [t1,t2]에 해당하는 인덱스 범위
+    let i1=-1,i2=-1;
+    for(let i=0;i<cd.elapsed.length;i++){
+      if(i1<0 && cd.elapsed[i]>=S.roi.t1) i1=i;
+      if(cd.elapsed[i]<=S.roi.t2) i2=i;
+    }
+    if(i1<0||i2<0||i2<i1) return;
+    const xs=chart.scales.x, area=chart.chartArea, ctx=chart.ctx;
+    const x1=xs.getPixelForValue(i1), x2=xs.getPixelForValue(i2);
+    ctx.save();
+    ctx.fillStyle = S.theme==='dark' ? 'rgba(61,126,255,0.16)' : 'rgba(61,126,255,0.12)';
+    ctx.fillRect(x1, area.top, x2-x1, area.bottom-area.top);
+    ctx.strokeStyle='rgba(61,126,255,0.55)';
+    ctx.lineWidth=1;
+    ctx.beginPath();
+    ctx.moveTo(x1,area.top); ctx.lineTo(x1,area.bottom);
+    ctx.moveTo(x2,area.top); ctx.lineTo(x2,area.bottom);
+    ctx.stroke();
+    ctx.restore();
+  }
+};
+Chart.register(roiPlugin);
+
+// 픽셀 x → 해당 차트의 elapsed_s
+function _pxToElapsed(chart, px){
+  const cd=S.chartData[chart.$sid];
+  if(!cd||!cd.elapsed.length) return null;
+  let idx=Math.round(chart.scales.x.getValueForPixel(px));
+  idx=Math.max(0, Math.min(cd.elapsed.length-1, idx));
+  return cd.elapsed[idx];
+}
+
+// 각 차트 캔버스에 드래그 핸들러 부착 (rebuildCharts에서 호출)
+function attachRoiDrag(canvas, sid){
+  canvas.addEventListener('pointerdown',(e)=>{
+    if(S.recording) return;                      // 수집 중에는 선택 불가
+    const cd=S.chartData[sid];
+    if(!cd||!cd.elapsed||!cd.elapsed.length) return;
+    _roiDrag={sid, x0:e.offsetX, moved:false};
+    canvas.setPointerCapture(e.pointerId);
+  });
+  canvas.addEventListener('pointermove',(e)=>{
+    if(!_roiDrag||_roiDrag.sid!==sid) return;
+    if(Math.abs(e.offsetX-_roiDrag.x0)>4) _roiDrag.moved=true;
+    if(!_roiDrag.moved) return;
+    const chart=S.charts[sid];
+    const a=_pxToElapsed(chart,Math.min(_roiDrag.x0,e.offsetX));
+    const b=_pxToElapsed(chart,Math.max(_roiDrag.x0,e.offsetX));
+    if(a==null||b==null) return;
+    S.roi={show:true,t1:a,t2:b};
+    _redrawAllCharts();
+  });
+  const finish=(e)=>{
+    if(!_roiDrag||_roiDrag.sid!==sid) return;
+    const moved=_roiDrag.moved; _roiDrag=null;
+    if(!moved){ clearRoi(); return; }            // 드래그 없는 클릭 → 선택 해제
+    updateRoiBar();
+  };
+  canvas.addEventListener('pointerup',finish);
+  canvas.addEventListener('pointercancel',finish);
+}
+
+function _redrawAllCharts(){
+  Object.values(S.charts).forEach(c=>c.update('none'));
+}
+
+function _roiRows(){
+  return S.recorded.filter(r=>r.elapsed_s>=S.roi.t1 && r.elapsed_s<=S.roi.t2);
+}
+
+function updateRoiBar(){
+  const bar=document.getElementById('roi-bar');
+  if(!S.roi.show){bar.style.display='none';return;}
+  const n=_roiRows().length;
+  document.getElementById('roi-range').textContent=`${S.roi.t1.toFixed(1)} s ~ ${S.roi.t2.toFixed(1)} s`;
+  document.getElementById('roi-n').textContent=n;
+  bar.style.display='';
+}
+
+function exportROI(){
+  if(!S.roi.show) return;
+  const rows=_roiRows();
+  if(!rows.length){log('선택 구간에 데이터가 없습니다.','err');return;}
+  S.roiMeta={roi_start_s:S.roi.t1, roi_end_s:S.roi.t2};
+  exportData(rows,'ble_data_'+ts()+'_roi');
+  S.roiMeta=null;
+  log(`구간 CSV 저장: ${S.roi.t1.toFixed(1)}~${S.roi.t2.toFixed(1)}s (${rows.length}행)`,'sys');
+}
+
+function clearRoi(){
+  if(!S.roi||!S.roi.show){ if(S.roi) S.roi.show=false; const b=document.getElementById('roi-bar'); if(b) b.style.display='none'; return; }
+  S.roi.show=false;
+  updateRoiBar();
+  _redrawAllCharts();
+}
+document.addEventListener('keydown',(e)=>{ if(e.key==='Escape') clearRoi(); });
+
+// 현재값 배지 리셋
+function resetLiveBadges(){
+  SENSORS.forEach(s=>s.axes.forEach((ax,i)=>{
+    const el=document.getElementById(`lvn-${s.id}-${i}`);
+    if(el) el.textContent='—';
+  }));
 }
 
 function updateExpRange(){
@@ -904,7 +1088,9 @@ function startRecording(){
 }
 
 function _doStart(autoStopMs){
-  S.recording=true; S.chartLive=true;
+  resetCharts();          // 수집 시작 시 차트를 비우고 0부터 새로 그림
+  clearRoi();             // 이전 ROI 선택 해제
+  S.recording=true;
   S.recStart=Date.now(); S.recActualStart=new Date();
   S.ltSegStart=Date.now();
   setRecBtn('running','수집 종료');
@@ -921,7 +1107,7 @@ function _doStart(autoStopMs){
 function stopRecording(){
   clearTimeout(S.trigStartTimer); clearTimeout(S.trigEndTimer);
   S.recording=false;
-  // chartLive는 유지 — 연결이 살아있으면 차트는 계속 표시
+  // 차트는 마지막 상태로 정지·유지 — 관찰/ROI 구간 선택용
   clearInterval(S.recTimer);
   setRecBtn('idle','수집 시작');
   document.getElementById('conn-dot').classList.remove('rec');
@@ -948,7 +1134,14 @@ function setExportEnabled(on){
 }
 
 function clearData(){
+  if(S.recording){
+    if(!confirm('수집 중입니다. 중지하고 초기화할까요?')) return;
+    stopRecording();
+  }
   S.recorded=[];
+  resetCharts();
+  clearRoi();
+  resetLiveBadges();
   document.getElementById('rec-samples').textContent=0;
   document.getElementById('rec-time').textContent='0:00';
   document.getElementById('rec-count').textContent=0;
@@ -961,7 +1154,9 @@ function clearData(){
 // 내보내기 (수집 조건 메타데이터 포함)
 // ═══════════════════════════════════════════════
 function buildMeta(){
+  const roiExtra = S.roiMeta ? S.roiMeta : {};   // ROI 구간 내보내기 시 roi_start_s/roi_end_s 포함
   return {
+    ...roiExtra,
     export_time: new Date().toISOString(),
     sample_hz: S.hz,
     sensors: [...S.active].join(', '),
@@ -1085,8 +1280,6 @@ function updateConnUI(on){
     document.getElementById('disconnect-btn').disabled=!on;
   }
   document.getElementById('rec-btn').disabled=!on&&!S.demoMode;
-  if(on) S.chartLive=true;
-  if(!on && !S.demoMode) S.chartLive=false;
 }
 
 // ═══════════════════════════════════════════════
@@ -1128,75 +1321,54 @@ const BLE_CHAR_MAP = {
   cmd     : '19b10010-e8f2-537e-4f6c-d104768a1214',
 };
 
-async function connectBLE(){
+// 디바이스 정보 특성 (Read 전용 — 연결 후 DEVICE ID 자동 획득)
+const BLE_DEVINFO = '19b10008-e8f2-537e-4f6c-d104768a1214';
+
+// ── 보드 별명(닉네임) 저장소 ──────────────────────────
+// { "A3F7": "모둠3", ... } 형태로 localStorage에 유지
+const NICK_KEY='sensorlab.nicknames';
+function loadNicks(){try{return JSON.parse(localStorage.getItem(NICK_KEY)||'{}');}catch(e){return{};}}
+function saveNicks(n){localStorage.setItem(NICK_KEY,JSON.stringify(n));}
+function nickOf(id){return loadNicks()[id]||null;}
+function boardLabel(id){const n=nickOf(id);return n?`${n} (BLE-${id})`:('BLE-'+id);}
+function removeNick(id){
+  const n=loadNicks(); delete n[id]; saveNicks(n); renderKnownBoards();
+  log(`저장된 보드 삭제: BLE-${id}`,'sys');
+}
+function renderKnownBoards(){
+  const nicks=loadNicks();
+  const ids=Object.keys(nicks);
+  const wrap=document.getElementById('ble-known-wrap');
+  const el=document.getElementById('ble-known');
+  wrap.style.display=ids.length?'':'none';
+  el.innerHTML='';
+  ids.forEach(id=>{
+    const chip=document.createElement('div');
+    chip.className='bchip';
+    chip.title=`클릭: ${nicks[id]} 재연결 · 우클릭: 삭제`;
+    chip.innerHTML=`<span>${esc(nicks[id])}</span><span class="bid">BLE-${id}</span><button class="bx" title="별명 삭제">✕</button>`;
+    chip.onclick=(e)=>{ if(e.target.classList.contains('bx')){e.stopPropagation();removeNick(id);return;} reconnectKnown(id); };
+    chip.oncontextmenu=(e)=>{ e.preventDefault(); if(confirm(`"${nicks[id]}" (BLE-${id}) 별명을 삭제할까요?`)) removeNick(id); };
+    el.appendChild(chip);
+  });
+}
+
+// ── BLE 연결 ─────────────────────────────────────────
+// 웹 블루투스 보안 모델상 최초 1회는 반드시 선택창에서 사용자가 장치를 골라야 한다.
+// (완전 무개입 자동 연결 불가) 별명은 그 이후의 재연결을 1클릭으로 만드는 장치다.
+async function connectBLE(targetId){
   if(!('bluetooth' in navigator)){
     log('Web Bluetooth 미지원 — Chrome / Edge 필요','err'); return;
   }
-  const id=document.getElementById('ble-pin').value.trim().toUpperCase();
-  if(id.length!==4){log('DEVICE ID 4자리를 입력하세요. (예: A3F7)','err');return;}
-
-  const deviceName='BLE-'+id;
-  S.blePIN=id;
-  log(`BLE 탐색 중: ${deviceName} ...`,'sys');
-  log('팝업에서 "'+deviceName+'" 을 선택하세요.','sys');
-
+  // targetId 지정 시 그 보드만 정확 필터, 아니면 우리 보드(BLE-*)만 목록에 표시
+  const filters = targetId ? [{name:'BLE-'+targetId}] : [{namePrefix:'BLE-'}];
+  log(targetId?`BLE 탐색 중: BLE-${targetId} ...`:'BLE 탐색 중 — 선택창에서 보드를 고르세요.','sys');
   try{
-    // acceptAllDevices: 주변 모든 BLE 장치를 목록에 표시
-    // → 사용자가 "BLE-XXXX" 직접 선택
     const device = await navigator.bluetooth.requestDevice({
-      acceptAllDevices: true,
+      filters,
       optionalServices: [BLE_SERVICE]
     });
-
-    // 선택된 장치명 검증
-    if(device.name && device.name !== deviceName){
-      const ok = confirm(
-        `선택된 장치: "${device.name}"\n` +
-        `입력한 ID:   "${deviceName}"\n\n` +
-        `장치가 다릅니다. 계속 연결하시겠습니까?`
-      );
-      if(!ok){ log('연결 취소됨','sys'); return; }
-    }
-
-    S.bleDevice=device;
-    device.addEventListener('gattserverdisconnected', onBLEDisconnected);
-    log('BLE 장치 선택됨: '+(device.name||'(이름 없음)'),'sys');
-
-    const server  = await device.gatt.connect();
-    S.bleServer   = server;
-    const service = await server.getPrimaryService(BLE_SERVICE);
-    S.bleService  = service;
-
-    S.bleChars={};
-    for(const [sid, uuid] of Object.entries(BLE_CHAR_MAP)){
-      try{
-        const ch = await service.getCharacteristic(uuid);
-        S.bleChars[sid] = ch;
-        if(sid !== 'cmd'){
-          await ch.startNotifications();
-          ch.addEventListener('characteristicvaluechanged', (e)=>{
-            const line = new TextDecoder().decode(e.target.value);
-            onBLELine(line);
-          });
-        }
-      }catch(e){}
-    }
-
-    S.bleConnected=true;
-    S.connected=true;
-    updateConnUI(true);
-    document.getElementById('ble-connect-btn').disabled=true;
-    document.getElementById('ble-disconnect-btn').disabled=false;
-
-    const info=document.getElementById('ble-device-info');
-    info.style.display='';
-    info.innerHTML=`연결됨: <b>${device.name||deviceName}</b>`;
-
-    document.getElementById('conn-dot').classList.add('on');
-    document.getElementById('conn-label').textContent='BLE: '+(device.name||deviceName);
-    log(`BLE 연결 완료: ${device.name||deviceName}`,'sys');
-    sendSensorCfg();
-
+    await setupBLEDevice(device);
   }catch(e){
     if(e.name==='NotFoundError')
       log('장치 선택이 취소됐습니다.','err');
@@ -1205,6 +1377,94 @@ async function connectBLE(){
     else
       log('BLE 연결 실패: '+e.message,'err');
   }
+}
+
+// 고급 패널: DEVICE ID 수동 지정 경로 (비상용)
+function connectBLEManual(){
+  const id=document.getElementById('ble-pin').value.trim().toUpperCase();
+  if(id.length!==4){log('DEVICE ID 4자리를 입력하세요. (예: A3F7)','err');return;}
+  connectBLE(id);
+}
+
+// 저장된 보드 칩 클릭 → 재연결
+async function reconnectKnown(id){
+  if(!('bluetooth' in navigator)){log('Web Bluetooth 미지원','err');return;}
+  const name='BLE-'+id;
+  // getDevices() 지원 브라우저(크롬 데스크톱): 이미 허가된 장치면 선택창 없이 재연결
+  if(navigator.bluetooth.getDevices){
+    try{
+      const devs=await navigator.bluetooth.getDevices();
+      const d=devs.find(x=>x.name===name);
+      if(d){
+        log(`재연결 시도: ${boardLabel(id)} (선택창 없음)`,'sys');
+        await setupBLEDevice(d);
+        return;
+      }
+    }catch(e){ /* 미지원/실패 시 아래 폴백 */ }
+  }
+  // 폴백: 해당 이름 정확 필터로 선택창 1탭
+  connectBLE(id);
+}
+
+// 장치 선택/획득 이후의 공통 연결 절차
+async function setupBLEDevice(device){
+  S.bleDevice=device;
+  device.addEventListener('gattserverdisconnected', onBLEDisconnected);
+  log('BLE 장치: '+(device.name||'(이름 없음)'),'sys');
+
+  const server  = await device.gatt.connect();
+  S.bleServer   = server;
+  const service = await server.getPrimaryService(BLE_SERVICE);
+  S.bleService  = service;
+
+  S.bleChars={};
+  for(const [sid, uuid] of Object.entries(BLE_CHAR_MAP)){
+    try{
+      const ch = await service.getCharacteristic(uuid);
+      S.bleChars[sid] = ch;
+      if(sid !== 'cmd'){
+        await ch.startNotifications();
+        ch.addEventListener('characteristicvaluechanged', (e)=>{
+          const line = new TextDecoder().decode(e.target.value);
+          onBLELine(line);
+        });
+      }
+    }catch(e){}
+  }
+
+  // DeviceInfo 특성에서 DEVICE ID 자동 획득 (입력 불필요)
+  let devId='';
+  try{
+    const ch=await service.getCharacteristic(BLE_DEVINFO);
+    devId=new TextDecoder().decode(await ch.readValue()).trim().toUpperCase();
+  }catch(e){}
+  if(!devId && device.name && device.name.startsWith('BLE-')) devId=device.name.slice(4);
+  S.blePIN=devId;
+
+  // 처음 보는 보드면 별명 등록 제안
+  if(devId && !nickOf(devId)){
+    const nk=prompt(`이 보드의 별명? 예: 모둠3\n(비워두면 저장하지 않음)`,'');
+    if(nk && nk.trim()){
+      const n=loadNicks(); n[devId]=nk.trim(); saveNicks(n); renderKnownBoards();
+      log(`별명 저장: ${nk.trim()} = BLE-${devId}`,'sys');
+    }
+  }
+
+  S.bleConnected=true;
+  S.connected=true;
+  updateConnUI(true);
+  document.getElementById('ble-connect-btn').disabled=true;
+  document.getElementById('ble-disconnect-btn').disabled=false;
+
+  const label = devId ? boardLabel(devId) : (device.name||'BLE 장치');
+  const info=document.getElementById('ble-device-info');
+  info.style.display='';
+  info.innerHTML=`연결됨: <b>${esc(label)}</b>`;
+
+  document.getElementById('conn-dot').classList.add('on');
+  document.getElementById('conn-label').textContent='BLE: '+label;
+  log(`BLE 연결 완료: ${label}`,'sys');
+  sendSensorCfg();
 }
 
 function onBLELine(line){
@@ -1251,7 +1511,6 @@ function runDemo(){
   if(S.demoMode){
     clearInterval(S.demoTimer); S.demoMode=false;
     if(S.recording)stopRecording();
-    S.chartLive=false;
     document.getElementById('demo-btn').innerHTML=
       '<svg viewBox="0 0 16 16" fill="currentColor"><polygon points="3,2 14,8 3,14"/></svg>데모 모드';
     document.getElementById('rec-btn').disabled=!S.connected;
@@ -1264,7 +1523,6 @@ function runDemo(){
     S.active.add(id); document.getElementById('si-'+id).classList.add('active');
   });
   rebuildCharts();
-  S.chartLive=true;
   document.getElementById('conn-dot').classList.add('on');
   document.getElementById('conn-label').textContent='데모 모드';
   document.getElementById('rec-btn').disabled=false;
@@ -1275,7 +1533,6 @@ function runDemo(){
   const iv=Math.max(50,Math.round(1000/S.hz));
   S.demoTimer=setInterval(()=>{
     t+=0.05;
-    if(!S.chartLive)return;
     pushData('imu_acc',[+(Math.sin(t)*2+(Math.random()-.5)*.3).toFixed(3),+(Math.cos(t*.7)*1.5+(Math.random()-.5)*.3).toFixed(3),+(9.81+Math.sin(t*.3)*.5+(Math.random()-.5)*.2).toFixed(3)]);
     pushData('imu_gyr',[+(Math.sin(t*1.2)*15+(Math.random()-.5)*2).toFixed(2),+(Math.cos(t*.8)*12+(Math.random()-.5)*2).toFixed(2),+(Math.sin(t*.5)*8+(Math.random()-.5)).toFixed(2)]);
     pushData('temp_hum',[+(22+Math.sin(t*.1)*3+(Math.random()-.5)*.5).toFixed(1),+(55+Math.sin(t*.08)*10+(Math.random()-.5)*2).toFixed(1)]);
@@ -1963,6 +2220,7 @@ function switchTab(id){
 // 초기화
 // ═══════════════════════════════════════════════
 buildSensorList();
+renderKnownBoards();
 log('Arduino Nano 33 BLE 대시보드 v2.1 로드됨','sys');
 log('Web Serial API: '+('serial' in navigator?'지원됨 ✓':'미지원 ✗ — Chrome/Edge 필요'),'serial' in navigator?'sys':'err');
 log('Web Bluetooth API: '+('bluetooth' in navigator?'지원됨 ✓':'미지원 ✗ — Chrome/Edge 필요'),'bluetooth' in navigator?'sys':'err');
