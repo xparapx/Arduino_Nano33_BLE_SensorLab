@@ -473,9 +473,9 @@ body.light .code-block{color:#3a4a6b;background:#f8f9fc;}
       <div>
         <div class="srate-row-lbl">실시간 (Hz)</div>
         <div class="srate-grid rt" id="sr-rt">
-          <div class="srate-btn active" data-hz="1"   onclick="setSR(this,'rt')">1<span class="srate-unit">Hz</span></div>
+          <div class="srate-btn"       data-hz="1"   onclick="setSR(this,'rt')">1<span class="srate-unit">Hz</span></div>
           <div class="srate-btn"       data-hz="10"  onclick="setSR(this,'rt')">10<span class="srate-unit">Hz</span></div>
-          <div class="srate-btn"       data-hz="20"  onclick="setSR(this,'rt')">20<span class="srate-unit">Hz</span></div>
+          <div class="srate-btn active" data-hz="20"  onclick="setSR(this,'rt')">20<span class="srate-unit">Hz</span></div>
           <div class="srate-btn"       data-hz="50"  onclick="setSR(this,'rt')">50<span class="srate-unit">Hz</span></div>
           <div class="srate-btn"       data-hz="100" onclick="setSR(this,'rt')">100<span class="srate-unit">Hz</span></div>
         </div>
@@ -492,7 +492,7 @@ body.light .code-block{color:#3a4a6b;background:#f8f9fc;}
         </div>
       </div>
     </div>
-    <div class="xs" style="margin-top:6px;text-align:center;" id="buf-lbl">버퍼: 10s × 1Hz = 10pt</div>
+    <div class="xs" style="margin-top:6px;text-align:center;" id="buf-lbl">버퍼: 10s × 20Hz = 200pt</div>
   </div>
 
   <!-- 수집 조건 -->
@@ -669,7 +669,7 @@ const S = {
   port:null, writer:null, connected:false,
   recording:false, demoMode:false, demoTimer:null,
   active:new Set(),
-  hz:1, bufSize:10, longTermMin:0,
+  hz:20, bufSize:200, longTermMin:0,   // 기본 샘플레이트 20Hz (r4 피드백)
   ltTimer:null, ltSegStart:null,
   charts:{}, chartData:{},
   recorded:[], recStart:null, recTimer:null,
