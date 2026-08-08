@@ -1,4 +1,4 @@
-# Nano 33 BLE WebUI — 센서 대시보드 (USB · BLE 듀얼)
+# Nano 33 BLE WebUI — 센서 대시보드 (USB · BLE · phyphox)
 
 > Arduino Nano 33 BLE Sense의 **내장 센서**를 USB Serial 또는 BLE로 **브라우저 대시보드 또는 스마트폰 phyphox 앱에** 실시간 표시·기록·내보내기 하는 프로젝트. 학생이 상황에 따라 **USB Serial / BLE WebUI / phyphox(모바일)를 골라** 쓸 수 있다. 고등학교 SW·AI·물리 실습용.
 
