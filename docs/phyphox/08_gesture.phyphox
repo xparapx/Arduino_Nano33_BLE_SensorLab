@@ -1,5 +1,7 @@
 <phyphox xmlns="http://phyphox.org/xml" version="1.14">
     <title>제스처</title>
+    <icon format="string">GES</icon>
+    <color>42eaff</color>
     <category>Nano 33 BLE Sense</category>
     <description>APDS9960 위에서 손을 움직이면 방향(왼쪽/오른쪽/위/아래)을 인식합니다.</description>
 
@@ -22,19 +24,23 @@
     <view label="제스처">
         <info label="센서 위 3~10 cm에서 손을 한 방향으로 움직이세요." bold="true"/>
         <separator height="0.3"/>
-        <value label="인식된 동작" size="3" precision="0" color="ffd740">
+        <value label="" size="6" precision="0" color="42eaff">
             <input>gest</input>
-            <map max="0.5">대기 중</map>
-            <map min="0.5" max="1.5">← 왼쪽</map>
-            <map min="1.5" max="2.5">→ 오른쪽</map>
-            <map min="2.5" max="3.5">↑ 아래에서 위로</map>
-            <map min="3.5">↓ 위에서 아래로</map>
+            <map max="0.5">·</map>
+            <map min="0.5" max="1.5">←</map>
+            <map min="1.5" max="2.5">→</map>
+            <map min="2.5" max="3.5">↑</map>
+            <map min="3.5">↓</map>
+        </value>
+        <value label="" size="1.5" precision="0" color="ffffff">
+            <input>gest</input>
+            <map max="0.5">손을 움직여 보세요</map>
+            <map min="0.5" max="1.5">왼쪽으로</map>
+            <map min="1.5" max="2.5">오른쪽으로</map>
+            <map min="2.5" max="3.5">아래에서 위로</map>
+            <map min="3.5">위에서 아래로</map>
         </value>
         <separator height="0.3"/>
-        <graph label="제스처 이력 (1=왼쪽 2=오른쪽 3=아래→위 4=위→아래)" labelX="시간" unitX="s" labelY="코드" unitY="" partialUpdate="true" style="dots" lineWidth="3">
-            <input axis="x">t</input>
-            <input axis="y" color="ffd740">gest</input>
-        </graph>
     </view>
     <view label="안내">
         <info label="사용 방법" bold="true"/>
@@ -46,13 +52,14 @@
         <separator height="0.3"/>
         <info label="방향은 USB 커넥터를 아래로 두었을 때 기준입니다."/>
         <info label="인식이 안 되면 손을 조금 더 천천히, 가까이에서 움직여 보세요."/>
+        <info label="동작 기록(시각·코드)은 데이터 내보내기로 저장할 수 있습니다."/>
     </view>
     </views>
 
     <export>
         <set name="제스처 데이터">
             <data name="t (s)">t</data>
-            <data name="제스처 코드">gest</data>
+            <data name="제스처 코드 (1왼쪽 2오른쪽 3위로 4아래로)">gest</data>
         </set>
     </export>
 </phyphox>

@@ -1,5 +1,7 @@
 <phyphox xmlns="http://phyphox.org/xml" version="1.14">
     <title>조도</title>
+    <icon format="string">LUX</icon>
+    <color>42eaff</color>
     <category>Nano 33 BLE Sense</category>
     <description>APDS9960의 Clear 채널로 주변 밝기를 측정합니다.</description>
 
