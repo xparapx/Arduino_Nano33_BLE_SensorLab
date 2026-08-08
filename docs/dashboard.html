@@ -919,6 +919,9 @@ function buildGraphCard(g){
           <button data-tool="fitview" title="크기 최적화 (재클릭: 자동 복귀)" onclick="anaFitView('${gid}',this)">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M9 3H3v6M15 3h6v6M9 21H3v-6M15 21h6v-6"/></svg>
           </button>
+          <button data-tool="aim" title="좌표 표시(조준) — 활성 시 포인터 위치의 값 표시" onclick="event.stopPropagation();anaAimToggle('${gid}',this)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="6"/><path d="M12 2.5v3.5M12 18v3.5M2.5 12H6M18 12h3.5"/><circle cx="12" cy="12" r="0.8" fill="currentColor" stroke="none"/></svg>
+          </button>
           <button data-tool="tangent" title="접선(기울기)" onclick="anaTangentToggle('${gid}',this)">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M3 20 C 7.5 20, 8.5 6, 12 6 C 15.5 6, 16.5 20, 21 20"/><line x1="4" y1="13" x2="17" y2="3.5"/><circle cx="10.2" cy="7.6" r="1.4" fill="currentColor" stroke="none"/></svg>
           </button>
@@ -1025,13 +1028,18 @@ function createGraphChart(g){
       animation:false, responsive:true, maintainAspectRatio:false,
       plugins:{
         legend:{display:false},   // 커스텀 성분 토글 행으로 일원화 (B-2)
-        tooltip:{mode:'nearest',intersect:false,callbacks:{label:c=>` ${c.dataset.label}: ${c.parsed.y?.toFixed(3)??'—'}`}}
+        // 좌표 툴팁은 조준(⊹) 도구 활성 시에만 — ROI 드래그와의 겹침 방지
+        tooltip:{enabled:!!S.aimOn[gid], mode:'nearest',intersect:false,
+                 callbacks:{label:c=>` ${c.dataset.label}: ${c.parsed.y?.toFixed(3)??'—'}`}}
       },
       scales,
       interaction:{mode:'nearest',intersect:false}
     }
   });
   S.charts[gid].$sid=gid;
+  // 조준(좌표 툴팁) 버튼 상태 복원
+  { const ab=document.querySelector(`#tb-${gid} [data-tool="aim"]`);
+    if(ab) ab.classList.toggle('on', !!S.aimOn[gid]); }
   applySeriesVisibility(gid);
   updateAxisChips(gid);
   renderSeriesToggles(gid);
@@ -1396,6 +1404,7 @@ S.layoutRows=[];        // r4-D: 워크스페이스 행 배치 [[gid],[gid,gid]]
 S.graphRec={};          // {gid:[[{t,x,y}...],[...]]} — 그래프별 비롤링 기록 (내보내기·분석 소스)
 S.latest={};            // {sid:[v...]} — 각 센서 최신값 캐시 (XY 페어링 소스)
 S.seriesOff={};         // {sid:Set(axisIdx)} — 꺼진 성분 (B-2: 분석·내보내기에서 제외)
+S.aimOn={};             // {gid:bool} — 조준(좌표 툴팁) 도구 활성 상태
 
 // ── B-2/r4: 시리즈(성분) 토글 — 그래프의 y/y2 시리즈 단위, 꺼진 시리즈는 분석·내보내기 제외 ──
 function _offSet(gid){ return S.seriesOff[gid]||new Set(); }
@@ -1630,6 +1639,16 @@ function anaFitView(sid, btn){
   ch.$fitview=true; btn.classList.add('on'); ch.update();
 }
 
+// ── 조준(좌표 툴팁) 토글 — 활성 시에만 포인터 위치 값이 표시됨 ──
+function anaAimToggle(gid, btn){
+  const ch=S.charts[gid]; if(!ch) return;
+  S.aimOn[gid]=!S.aimOn[gid];
+  const tt=ch.config && ch.config.options && ch.config.options.plugins && ch.config.options.plugins.tooltip;
+  if(tt) tt.enabled=!!S.aimOn[gid];
+  btn.classList.toggle('on', !!S.aimOn[gid]);
+  ch.update('none');
+}
+
 // ── 6-B 접선(기울기) ──
 S.tangentSid=null;
 function anaTangentToggle(sid, btn){
@@ -1773,7 +1792,9 @@ const anaPlugin={
         const d=cd.datasets[di]; if(!d) return;
         const seg=d.data.filter(p=>p.x>=x1&&p.x<=x2);
         if(seg.length<2) return;
-        const y0=Math.max(area.top, Math.min(area.bottom, ys.getPixelForValue(0)));
+        // 기준선: y=0이 보이면 0선까지, 화면 밖이면(전부 음수/양수) 곡선 아래쪽으로 음영
+        let y0=ys.getPixelForValue(0);
+        if(y0<area.top || y0>area.bottom) y0=area.bottom;
         ctx.beginPath();
         ctx.moveTo(xs.getPixelForValue(seg[0].x), y0);
         seg.forEach(p=>ctx.lineTo(xs.getPixelForValue(p.x), ys.getPixelForValue(p.y)));
