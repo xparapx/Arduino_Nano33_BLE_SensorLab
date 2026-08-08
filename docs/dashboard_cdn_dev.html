@@ -147,6 +147,14 @@ header{display:flex;align-items:center;justify-content:space-between;padding:0 1
 .lv-num{font-weight:700;font-family:'JetBrains Mono','Fira Code',monospace;}
 .lv-lbl{font-size:9px;color:var(--text3);}
 .chart-body{padding:8px 12px 12px;}
+.chart-body canvas{touch-action:pan-y;}  /* 모바일: 세로 스크롤 유지, 가로 드래그는 ROI 선택 */
+
+/* ── ROI 선택 표시줄 ── */
+.roi-bar{margin-top:6px;padding:8px 10px;border-radius:var(--r);
+  background:rgba(61,126,255,.08);border:1px solid rgba(61,126,255,.3);
+  font-size:11px;color:var(--text2);line-height:1.6;}
+.roi-bar b{color:var(--accent2);font-family:'JetBrains Mono','Fira Code',monospace;font-weight:600;}
+.roi-btns{display:flex;gap:5px;margin-top:6px;}
 
 /* ── 시리얼 로그 ── */
 .log-panel{height:108px;background:var(--bg);border-top:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;}
@@ -457,6 +465,14 @@ details.adv summary:hover{color:var(--text2);}
     </div>
     <button class="btn full" id="exp-clear" onclick="clearData()" disabled style="margin-top:5px;font-size:11px;">데이터 초기화</button>
     <div class="xs" style="margin-top:5px;text-align:center;">저장: <span id="rec-count">0</span>개 · <span id="exp-range">—</span></div>
+    <div class="roi-bar" id="roi-bar" style="display:none;">
+      선택 구간: <b id="roi-range">—</b> · <span id="roi-n">0</span>개 샘플
+      <div class="roi-btns">
+        <button class="btn full" onclick="exportROI()" style="font-size:11px;">구간 CSV</button>
+        <button class="btn full" onclick="clearRoi()" style="font-size:11px;">해제</button>
+      </div>
+    </div>
+    <div class="xs" style="margin-top:5px;text-align:center;" title="차트 버퍼는 롤링이라 화면에 보이는 구간만 선택할 수 있습니다.">수집 정지 후 차트를 가로로 드래그하면 구간 선택</div>
   </div>
 
   <!-- 데모 -->
@@ -796,6 +812,8 @@ function rebuildCharts(){
         interaction:{mode:'index',intersect:false}
       }
     });
+    S.charts[s.id].$sid=s.id;                                   // ROI 플러그인용 역참조
+    attachRoiDrag(document.getElementById('cv-'+s.id), s.id);   // ROI 드래그 선택
   });
 }
 
@@ -870,8 +888,119 @@ function resetCharts(){
   });
 }
 
-// ROI 선택 해제 — 본구현은 ROI 기능 블록에서 대체
-function clearRoi(){}
+// ═══════════════════════════════════════════════
+// ROI 드래그 선택 → 구간 CSV (기능 4)
+// ═══════════════════════════════════════════════
+// 수집 정지 상태 + 데이터 존재 시, 차트 위 가로 드래그로 시간 구간 선택.
+// 선택은 [t1,t2] 시간 기준 — 드래그한 차트뿐 아니라 전 센서 행을 내보낸다 (MBL 관례).
+// 주의: 차트 버퍼는 롤링(S.bufSize)이라 화면에 보이는 구간만 선택 가능.
+S.roi={show:false,t1:0,t2:0};
+S.roiMeta=null;
+let _roiDrag=null;   // {sid,x0} 드래그 진행 상태
+
+// Chart.js 커스텀 플러그인 — 선택 구간 반투명 하이라이트
+const roiPlugin={
+  id:'roiHighlight',
+  afterDatasetsDraw(chart){
+    if(!S.roi.show) return;
+    const sid=chart.$sid; const cd=S.chartData[sid];
+    if(!cd||!cd.elapsed||!cd.elapsed.length) return;
+    // elapsed[](오름차순)에서 [t1,t2]에 해당하는 인덱스 범위
+    let i1=-1,i2=-1;
+    for(let i=0;i<cd.elapsed.length;i++){
+      if(i1<0 && cd.elapsed[i]>=S.roi.t1) i1=i;
+      if(cd.elapsed[i]<=S.roi.t2) i2=i;
+    }
+    if(i1<0||i2<0||i2<i1) return;
+    const xs=chart.scales.x, area=chart.chartArea, ctx=chart.ctx;
+    const x1=xs.getPixelForValue(i1), x2=xs.getPixelForValue(i2);
+    ctx.save();
+    ctx.fillStyle = S.theme==='dark' ? 'rgba(61,126,255,0.16)' : 'rgba(61,126,255,0.12)';
+    ctx.fillRect(x1, area.top, x2-x1, area.bottom-area.top);
+    ctx.strokeStyle='rgba(61,126,255,0.55)';
+    ctx.lineWidth=1;
+    ctx.beginPath();
+    ctx.moveTo(x1,area.top); ctx.lineTo(x1,area.bottom);
+    ctx.moveTo(x2,area.top); ctx.lineTo(x2,area.bottom);
+    ctx.stroke();
+    ctx.restore();
+  }
+};
+Chart.register(roiPlugin);
+
+// 픽셀 x → 해당 차트의 elapsed_s
+function _pxToElapsed(chart, px){
+  const cd=S.chartData[chart.$sid];
+  if(!cd||!cd.elapsed.length) return null;
+  let idx=Math.round(chart.scales.x.getValueForPixel(px));
+  idx=Math.max(0, Math.min(cd.elapsed.length-1, idx));
+  return cd.elapsed[idx];
+}
+
+// 각 차트 캔버스에 드래그 핸들러 부착 (rebuildCharts에서 호출)
+function attachRoiDrag(canvas, sid){
+  canvas.addEventListener('pointerdown',(e)=>{
+    if(S.recording) return;                      // 수집 중에는 선택 불가
+    const cd=S.chartData[sid];
+    if(!cd||!cd.elapsed||!cd.elapsed.length) return;
+    _roiDrag={sid, x0:e.offsetX, moved:false};
+    canvas.setPointerCapture(e.pointerId);
+  });
+  canvas.addEventListener('pointermove',(e)=>{
+    if(!_roiDrag||_roiDrag.sid!==sid) return;
+    if(Math.abs(e.offsetX-_roiDrag.x0)>4) _roiDrag.moved=true;
+    if(!_roiDrag.moved) return;
+    const chart=S.charts[sid];
+    const a=_pxToElapsed(chart,Math.min(_roiDrag.x0,e.offsetX));
+    const b=_pxToElapsed(chart,Math.max(_roiDrag.x0,e.offsetX));
+    if(a==null||b==null) return;
+    S.roi={show:true,t1:a,t2:b};
+    _redrawAllCharts();
+  });
+  const finish=(e)=>{
+    if(!_roiDrag||_roiDrag.sid!==sid) return;
+    const moved=_roiDrag.moved; _roiDrag=null;
+    if(!moved){ clearRoi(); return; }            // 드래그 없는 클릭 → 선택 해제
+    updateRoiBar();
+  };
+  canvas.addEventListener('pointerup',finish);
+  canvas.addEventListener('pointercancel',finish);
+}
+
+function _redrawAllCharts(){
+  Object.values(S.charts).forEach(c=>c.update('none'));
+}
+
+function _roiRows(){
+  return S.recorded.filter(r=>r.elapsed_s>=S.roi.t1 && r.elapsed_s<=S.roi.t2);
+}
+
+function updateRoiBar(){
+  const bar=document.getElementById('roi-bar');
+  if(!S.roi.show){bar.style.display='none';return;}
+  const n=_roiRows().length;
+  document.getElementById('roi-range').textContent=`${S.roi.t1.toFixed(1)} s ~ ${S.roi.t2.toFixed(1)} s`;
+  document.getElementById('roi-n').textContent=n;
+  bar.style.display='';
+}
+
+function exportROI(){
+  if(!S.roi.show) return;
+  const rows=_roiRows();
+  if(!rows.length){log('선택 구간에 데이터가 없습니다.','err');return;}
+  S.roiMeta={roi_start_s:S.roi.t1, roi_end_s:S.roi.t2};
+  exportData(rows,'ble_data_'+ts()+'_roi');
+  S.roiMeta=null;
+  log(`구간 CSV 저장: ${S.roi.t1.toFixed(1)}~${S.roi.t2.toFixed(1)}s (${rows.length}행)`,'sys');
+}
+
+function clearRoi(){
+  if(!S.roi||!S.roi.show){ if(S.roi) S.roi.show=false; const b=document.getElementById('roi-bar'); if(b) b.style.display='none'; return; }
+  S.roi.show=false;
+  updateRoiBar();
+  _redrawAllCharts();
+}
+document.addEventListener('keydown',(e)=>{ if(e.key==='Escape') clearRoi(); });
 
 // 현재값 배지 리셋
 function resetLiveBadges(){
@@ -985,7 +1114,9 @@ function clearData(){
 // 내보내기 (수집 조건 메타데이터 포함)
 // ═══════════════════════════════════════════════
 function buildMeta(){
+  const roiExtra = S.roiMeta ? S.roiMeta : {};   // ROI 구간 내보내기 시 roi_start_s/roi_end_s 포함
   return {
+    ...roiExtra,
     export_time: new Date().toISOString(),
     sample_hz: S.hz,
     sensors: [...S.active].join(', '),
