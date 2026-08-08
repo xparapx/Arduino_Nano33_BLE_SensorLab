@@ -541,7 +541,7 @@ const SENSORS = [
 // ═══════════════════════════════════════════════
 const S = {
   port:null, writer:null, connected:false,
-  recording:false, chartLive:false, demoMode:false, demoTimer:null,
+  recording:false, demoMode:false, demoTimer:null,
   active:new Set(),
   hz:1, bufSize:10, longTermMin:0,
   ltTimer:null, ltSegStart:null,
@@ -631,7 +631,7 @@ function setSR(el, type){
 function trimAllBufs(){
   Object.keys(S.chartData).forEach(id=>{
     const cd=S.chartData[id];
-    while(cd.labels.length>S.bufSize){cd.labels.shift();cd.datasets.forEach(d=>d.data.shift());}
+    while(cd.labels.length>S.bufSize){cd.labels.shift();if(cd.elapsed)cd.elapsed.shift();cd.datasets.forEach(d=>d.data.shift());}
   });
 }
 
@@ -689,6 +689,7 @@ function rebuildCharts(){
     if(S.charts[s.id]) return;
     S.chartData[s.id]={
       labels:[],
+      elapsed:[],   // 각 포인트의 elapsed_s (ROI 픽셀→시간 환산용 병렬 배열)
       datasets:s.axes.map((ax,i)=>({
         label:ax, data:[],
         borderColor:colorVar(s.color,i,s.axes.length),
@@ -786,44 +787,70 @@ function lighten(hex,amt){
 function pushData(sid, values){
   const cd=S.chartData[sid]; if(!cd) return;
 
-  // 차트 업데이트 (chartLive 상태와 무관하게 연결 중엔 표시)
-  if(S.chartLive){
-    const lbl=new Date().toLocaleTimeString('ko-KR',{hour12:false});
-    cd.labels.push(lbl);
-    values.forEach((v,i)=>{if(cd.datasets[i]) cd.datasets[i].data.push(v);});
-    while(cd.labels.length>S.bufSize){cd.labels.shift();cd.datasets.forEach(d=>d.data.shift());}
-    if(S.charts[sid]) S.charts[sid].update('none');
-    values.forEach((v,i)=>{
-      const el=document.getElementById(`lvn-${sid}-${i}`);
-      if(el) el.textContent=typeof v==='number'?v.toFixed(2):v;
-    });
-  }
+  // 현재값 숫자 배지 — 연결/데모 중 항상 갱신 (라이브 리드아웃, MBL 관례)
+  values.forEach((v,i)=>{
+    const el=document.getElementById(`lvn-${sid}-${i}`);
+    if(el) el.textContent=typeof v==='number'?v.toFixed(2):v;
+  });
 
-  // 레코드 저장 (recording 상태일 때만)
-  if(S.recording){
-    const sensor=SENSORS.find(s=>s.id===sid);
-    const now=new Date();
-    const row={
-      timestamp: now.toISOString(),
-      elapsed_s: S.recActualStart ? +((now-S.recActualStart)/1000).toFixed(2) : 0,
-      sensor: sensor?.name??sid,
-    };
-    sensor?.axes.forEach((ax,i)=>row[ax]=values[i]??'');
-    S.recorded.push(row);
-    document.getElementById('rec-samples').textContent=S.recorded.length;
-    document.getElementById('rec-count').textContent=S.recorded.length;
-    updateExpRange();
-    setExportEnabled(true);
+  // 차트·레코드는 수집(레코드) 중에만 진행 — 수집 시작 전 차트는 정지 상태 (MBL 관례)
+  if(!S.recording) return;
 
-    // 롱텀: 간격마다 자동 저장
-    if(S.longTermMin>0 && S.ltSegStart){
-      const elapsed=(Date.now()-S.ltSegStart)/1000/60;
-      if(elapsed>=S.longTermMin){
-        autoSaveLongterm();
-        S.ltSegStart=Date.now();
-      }
+  const now=new Date();
+  const elapsed=S.recActualStart ? +((now-S.recActualStart)/1000).toFixed(2) : 0;
+
+  // 차트 append (elapsed_s를 병렬 배열로 저장 — ROI 픽셀→시간 환산용)
+  const lbl=now.toLocaleTimeString('ko-KR',{hour12:false});
+  cd.labels.push(lbl);
+  cd.elapsed.push(elapsed);
+  values.forEach((v,i)=>{if(cd.datasets[i]) cd.datasets[i].data.push(v);});
+  while(cd.labels.length>S.bufSize){cd.labels.shift();cd.elapsed.shift();cd.datasets.forEach(d=>d.data.shift());}
+  if(S.charts[sid]) S.charts[sid].update('none');
+
+  // 레코드 저장
+  const sensor=SENSORS.find(s=>s.id===sid);
+  const row={
+    timestamp: now.toISOString(),
+    elapsed_s: elapsed,
+    sensor: sensor?.name??sid,
+  };
+  sensor?.axes.forEach((ax,i)=>row[ax]=values[i]??'');
+  S.recorded.push(row);
+  document.getElementById('rec-samples').textContent=S.recorded.length;
+  document.getElementById('rec-count').textContent=S.recorded.length;
+  updateExpRange();
+  setExportEnabled(true);
+
+  // 롱텀: 간격마다 자동 저장
+  if(S.longTermMin>0 && S.ltSegStart){
+    const ltElapsed=(Date.now()-S.ltSegStart)/1000/60;
+    if(ltElapsed>=S.longTermMin){
+      autoSaveLongterm();
+      S.ltSegStart=Date.now();
     }
   }
+}
+
+// 모든 차트 비우기 (수집 시작·데이터 초기화 시)
+function resetCharts(){
+  Object.keys(S.chartData).forEach(id=>{
+    const cd=S.chartData[id];
+    cd.labels.length=0;
+    if(cd.elapsed) cd.elapsed.length=0;
+    cd.datasets.forEach(d=>d.data.length=0);
+    if(S.charts[id]) S.charts[id].update('none');
+  });
+}
+
+// ROI 선택 해제 — 본구현은 ROI 기능 블록에서 대체
+function clearRoi(){}
+
+// 현재값 배지 리셋
+function resetLiveBadges(){
+  SENSORS.forEach(s=>s.axes.forEach((ax,i)=>{
+    const el=document.getElementById(`lvn-${s.id}-${i}`);
+    if(el) el.textContent='—';
+  }));
 }
 
 function updateExpRange(){
@@ -864,7 +891,9 @@ function startRecording(){
 }
 
 function _doStart(autoStopMs){
-  S.recording=true; S.chartLive=true;
+  resetCharts();          // 수집 시작 시 차트를 비우고 0부터 새로 그림
+  clearRoi();             // 이전 ROI 선택 해제
+  S.recording=true;
   S.recStart=Date.now(); S.recActualStart=new Date();
   S.ltSegStart=Date.now();
   setRecBtn('running','수집 종료');
@@ -881,7 +910,7 @@ function _doStart(autoStopMs){
 function stopRecording(){
   clearTimeout(S.trigStartTimer); clearTimeout(S.trigEndTimer);
   S.recording=false;
-  // chartLive는 유지 — 연결이 살아있으면 차트는 계속 표시
+  // 차트는 마지막 상태로 정지·유지 — 관찰/ROI 구간 선택용
   clearInterval(S.recTimer);
   setRecBtn('idle','수집 시작');
   document.getElementById('conn-dot').classList.remove('rec');
@@ -908,7 +937,14 @@ function setExportEnabled(on){
 }
 
 function clearData(){
+  if(S.recording){
+    if(!confirm('수집 중입니다. 중지하고 초기화할까요?')) return;
+    stopRecording();
+  }
   S.recorded=[];
+  resetCharts();
+  clearRoi();
+  resetLiveBadges();
   document.getElementById('rec-samples').textContent=0;
   document.getElementById('rec-time').textContent='0:00';
   document.getElementById('rec-count').textContent=0;
@@ -1045,8 +1081,6 @@ function updateConnUI(on){
     document.getElementById('disconnect-btn').disabled=!on;
   }
   document.getElementById('rec-btn').disabled=!on&&!S.demoMode;
-  if(on) S.chartLive=true;
-  if(!on && !S.demoMode) S.chartLive=false;
 }
 
 // ═══════════════════════════════════════════════
@@ -1211,7 +1245,6 @@ function runDemo(){
   if(S.demoMode){
     clearInterval(S.demoTimer); S.demoMode=false;
     if(S.recording)stopRecording();
-    S.chartLive=false;
     document.getElementById('demo-btn').innerHTML=
       '<svg viewBox="0 0 16 16" fill="currentColor"><polygon points="3,2 14,8 3,14"/></svg>데모 모드';
     document.getElementById('rec-btn').disabled=!S.connected;
@@ -1224,7 +1257,6 @@ function runDemo(){
     S.active.add(id); document.getElementById('si-'+id).classList.add('active');
   });
   rebuildCharts();
-  S.chartLive=true;
   document.getElementById('conn-dot').classList.add('on');
   document.getElementById('conn-label').textContent='데모 모드';
   document.getElementById('rec-btn').disabled=false;
@@ -1235,7 +1267,6 @@ function runDemo(){
   const iv=Math.max(50,Math.round(1000/S.hz));
   S.demoTimer=setInterval(()=>{
     t+=0.05;
-    if(!S.chartLive)return;
     pushData('imu_acc',[+(Math.sin(t)*2+(Math.random()-.5)*.3).toFixed(3),+(Math.cos(t*.7)*1.5+(Math.random()-.5)*.3).toFixed(3),+(9.81+Math.sin(t*.3)*.5+(Math.random()-.5)*.2).toFixed(3)]);
     pushData('imu_gyr',[+(Math.sin(t*1.2)*15+(Math.random()-.5)*2).toFixed(2),+(Math.cos(t*.8)*12+(Math.random()-.5)*2).toFixed(2),+(Math.sin(t*.5)*8+(Math.random()-.5)).toFixed(2)]);
     pushData('temp_hum',[+(22+Math.sin(t*.1)*3+(Math.random()-.5)*.5).toFixed(1),+(55+Math.sin(t*.08)*10+(Math.random()-.5)*2).toFixed(1)]);
