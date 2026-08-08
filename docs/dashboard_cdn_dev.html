@@ -239,6 +239,10 @@ body.recording .ax-chip{opacity:.4;cursor:not-allowed;}
 
 /* ── 시리얼 로그 ── */
 .log-panel{height:108px;background:var(--bg);border-top:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;}
+/* r4-F: 로그 패널 크기 조절 핸들 */
+.log-resize{height:6px;flex-shrink:0;cursor:row-resize;background:transparent;
+  border-top:2px solid transparent;transition:border-color .15s;touch-action:none;}
+.log-resize:hover{border-top-color:var(--accent);}
 .log-hdr{display:flex;align-items:center;justify-content:space-between;padding:5px 14px;border-bottom:1px solid var(--border);}
 .log-title{font-size:10px;font-weight:700;letter-spacing:.8px;color:var(--text3);text-transform:uppercase;}
 .log-body{flex:1;overflow-y:auto;padding:4px 14px;font-family:'JetBrains Mono','Fira Code',monospace;font-size:11px;line-height:1.75;}
@@ -510,13 +514,7 @@ body.light .code-block{color:#3a4a6b;background:#f8f9fc;}
     <div class="xs" style="margin-top:5px;text-align:center;" title="차트 버퍼는 롤링이라 화면에 보이는 구간만 선택할 수 있습니다.">수집 정지 후 차트 드래그로 구간 선택 → 우클릭 메뉴</div>
   </div>
 
-  <!-- 데모 -->
-  <div class="sec">
-    <button class="btn full" id="demo-btn" onclick="runDemo()">
-      <svg viewBox="0 0 16 16" fill="currentColor"><polygon points="3,2 14,8 3,14"/></svg>
-      데모 모드
-    </button>
-  </div>
+  <!-- r4-E: 데모 버튼은 패널에서 제거 — URL ?demo=1 일 때만 코드에서 주입 -->
 
 </aside>
 
@@ -530,7 +528,8 @@ body.light .code-block{color:#3a4a6b;background:#f8f9fc;}
     </div>
     <div class="chart-grid" id="chart-grid" style="display:none;"></div>
   </div>
-  <div class="log-panel">
+  <div class="log-panel" id="log-panel">
+    <div class="log-resize" id="log-resize" title="드래그: 높이 조절 · 더블클릭: 기본 높이"></div>
     <div class="log-hdr">
       <div class="log-title">시리얼 모니터</div>
       <div style="display:flex;gap:6px;align-items:center;">
@@ -2398,7 +2397,8 @@ function runDemo(){
   if(S.demoMode){
     clearInterval(S.demoTimer); S.demoMode=false;
     if(S.recording)stopRecording();
-    document.getElementById('demo-btn').innerHTML=
+    const db=document.getElementById('demo-btn');
+    if(db) db.innerHTML=
       '<svg viewBox="0 0 16 16" fill="currentColor"><polygon points="3,2 14,8 3,14"/></svg>데모 모드';
     document.getElementById('rec-btn').disabled=!S.connected;
     document.getElementById('conn-dot').classList.remove('on');
@@ -2413,7 +2413,7 @@ function runDemo(){
   document.getElementById('conn-dot').classList.add('on');
   document.getElementById('conn-label').textContent='데모 모드';
   document.getElementById('rec-btn').disabled=false;
-  document.getElementById('demo-btn').textContent='■ 데모 종료';
+  { const db=document.getElementById('demo-btn'); if(db) db.textContent='■ 데모 종료'; }
   log('[DEMO] 시뮬레이션 시작','sys');
 
   let t=0;
@@ -3109,6 +3109,45 @@ function switchTab(id){
 buildSensorList();
 S.myBoardId=(localStorage.getItem(MYBOARD_KEY)||'').match(/^[0-9A-F]{4}$/)?localStorage.getItem(MYBOARD_KEY):null;
 updateMyBoardBadge();
+
+// r4-E: 데모 주입은 URL 쿼리 ?demo=1 에서만 동작 (검증 자동화용 — 사용자 문서에는 표기하지 않음)
+if(typeof location!=='undefined' && new URLSearchParams(location.search||'').get('demo')==='1'){
+  const sec=document.createElement('div');
+  sec.className='sec';
+  sec.innerHTML='<button class="btn full" id="demo-btn" onclick="runDemo()">'+
+    '<svg viewBox="0 0 16 16" fill="currentColor"><polygon points="3,2 14,8 3,14"/></svg>데모 모드</button>';
+  const sb=document.querySelector('aside.sidebar');
+  if(sb) sb.appendChild(sec);
+}
+
+// r4-F: 시리얼 모니터 높이 조절 (드래그 핸들, min 80px ~ max 60vh, 더블클릭 복귀)
+const LOGH_KEY='sensorlab.loghpx';
+(function(){
+  const panel=document.getElementById('log-panel');
+  const grip=document.getElementById('log-resize');
+  if(!panel||!grip) return;
+  const saved=parseInt(localStorage.getItem(LOGH_KEY)||'');
+  if(saved) panel.style.height=Math.max(80,Math.min(window.innerHeight*0.6,saved))+'px';
+  let drag=null;
+  grip.addEventListener('pointerdown',e=>{
+    if(e.button!==0) return;
+    drag={y0:e.clientY, h0:panel.getBoundingClientRect().height};
+    grip.setPointerCapture(e.pointerId);
+  });
+  grip.addEventListener('pointermove',e=>{
+    if(!drag) return;
+    const nh=Math.max(80, Math.min(window.innerHeight*0.6, drag.h0+(drag.y0-e.clientY)));
+    panel.style.height=nh+'px';
+  });
+  const end=()=>{
+    if(!drag) return;
+    drag=null;
+    localStorage.setItem(LOGH_KEY, String(Math.round(panel.getBoundingClientRect().height)));
+  };
+  grip.addEventListener('pointerup',end);
+  grip.addEventListener('pointercancel',end);
+  grip.addEventListener('dblclick',()=>{ panel.style.height='108px'; localStorage.removeItem(LOGH_KEY); });
+})();
 log('Arduino Nano 33 BLE 대시보드 v2.1 로드됨','sys');
 log('Web Serial API: '+('serial' in navigator?'지원됨 ✓':'미지원 ✗ — Chrome/Edge 필요'),'serial' in navigator?'sys':'err');
 log('Web Bluetooth API: '+('bluetooth' in navigator?'지원됨 ✓':'미지원 ✗ — Chrome/Edge 필요'),'bluetooth' in navigator?'sys':'err');
