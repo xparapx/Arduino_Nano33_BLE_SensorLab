@@ -1,5 +1,5 @@
 <phyphox xmlns="http://phyphox.org/xml" version="1.14">
-    <title>가속도</title>
+    <title>01 가속도</title>
     <icon format="string">ACC</icon>
     <color>42eaff</color>
     <category>Nano 33 BLE Sense</category>

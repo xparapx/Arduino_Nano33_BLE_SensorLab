@@ -1,5 +1,5 @@
 <phyphox xmlns="http://phyphox.org/xml" version="1.14">
-    <title>제스처</title>
+    <title>10 제스처</title>
     <icon format="string">GES</icon>
     <color>42eaff</color>
     <category>Nano 33 BLE Sense</category>
@@ -25,7 +25,7 @@
         <info label="센서 위 3~10 cm에서 손을 한 방향으로 움직이세요." bold="true"/>
         <value label="" size="4" precision="0" color="42eaff">
             <input>gest</input>
-            <map max="0.5">​</map>
+            <map max="0.5">—</map>
             <map min="0.5" max="1.5">←</map>
             <map min="1.5" max="2.5">→</map>
             <map min="2.5" max="3.5">↑</map>

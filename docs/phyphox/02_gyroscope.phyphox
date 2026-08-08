@@ -1,5 +1,5 @@
 <phyphox xmlns="http://phyphox.org/xml" version="1.14">
-    <title>자이로스코프</title>
+    <title>02 자이로스코프</title>
     <icon format="string">GYR</icon>
     <color>42eaff</color>
     <category>Nano 33 BLE Sense</category>
