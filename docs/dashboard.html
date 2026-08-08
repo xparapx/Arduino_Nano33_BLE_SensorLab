@@ -172,12 +172,27 @@ header{display:flex;align-items:center;justify-content:space-between;padding:0 1
 
 /* ── 차트 영역 ── */
 .chart-area{flex:1;overflow-y:auto;padding:14px;background:var(--bg);}
-.chart-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
-.chart-grid.single{grid-template-columns:1fr;}
-.chart-empty{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--text3);gap:12px;text-align:center;}
-.chart-empty-icon{font-size:40px;opacity:.2;}
-.chart-empty h3{font-size:15px;color:var(--text2);font-weight:600;}
-.chart-empty p{font-size:12px;line-height:1.7;max-width:260px;}
+/* r4-D 워크스페이스 */
+.workspace{display:flex;flex-direction:column;gap:12px;}
+.ws-row{display:grid;grid-template-columns:1fr;gap:12px;}
+.ws-row.two{grid-template-columns:1fr 1fr;}          /* 1행 2열, 1:1 폭 스냅 */
+.g-hdr{cursor:grab;user-select:none;touch-action:none;}
+.g-hdr:active{cursor:grabbing;}
+.g-hdr .g-btns{display:flex;gap:5px;align-items:center;}
+.g-hdr .g-btn{width:24px;height:24px;border-radius:6px;border:1px solid var(--border);
+  background:var(--bg3);color:var(--text2);cursor:pointer;font-size:13px;line-height:1;
+  display:flex;align-items:center;justify-content:center;padding:0;}
+.g-hdr .g-btn:hover{color:var(--text);border-color:var(--border2);}
+/* r4-B: 축 칩은 캔버스 밖 전용 레이아웃 영역 — 오버레이 금지, 겹침 0 */
+.g-body{display:grid;grid-template-columns:36px 1fr;align-items:stretch;}
+.g-body.hasy2{grid-template-columns:36px 1fr 36px;}
+.g-ygut,.g-y2gut{display:flex;align-items:center;justify-content:center;padding:4px 2px;}
+.g-plot{position:relative;padding:8px 6px 2px;min-width:0;height:250px;}
+.g-xrow{display:flex;justify-content:center;padding:2px 0 8px;}
+.chart-card.drop-hint{outline:2px dashed var(--accent);outline-offset:-2px;}
+.dock-ghost{position:fixed;z-index:300;pointer-events:none;background:var(--bg3);
+  border:1px solid var(--accent);border-radius:10px;opacity:.75;padding:9px 16px;
+  font-size:12px;font-weight:600;color:var(--text);box-shadow:0 10px 30px var(--shadow);}
 .chart-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);overflow:hidden;box-shadow:0 2px 8px var(--shadow);}
 .chart-hdr{display:flex;align-items:center;justify-content:space-between;padding:9px 13px;border-bottom:1px solid var(--border);}
 .chart-title-row{display:flex;align-items:center;gap:8px;}
@@ -251,13 +266,13 @@ body.recording .ana-toolbar button{opacity:.4;cursor:not-allowed;}
 .st-item.off{text-decoration:line-through;opacity:.5;}
 
 /* ── B-1: 축 클릭 변수 선택 칩 (SPARKvue 방식) ── */
-.ax-chip{position:absolute;z-index:6;font-size:10px;font-weight:600;font-family:inherit;
-  padding:3px 9px;border-radius:7px;border:1px solid var(--border2);
-  background:color-mix(in srgb, var(--bg2) 85%, transparent);backdrop-filter:blur(4px);
-  color:var(--text2);cursor:pointer;transition:all .14s;white-space:nowrap;}
+.ax-chip{font-size:10.5px;font-weight:600;font-family:inherit;
+  min-height:32px;min-width:32px;                    /* r4-B: 히트 영역 32px 보장 */
+  padding:4px 10px;border-radius:7px;border:1px solid var(--border2);
+  background:var(--bg3);color:var(--text2);cursor:pointer;transition:all .14s;
+  white-space:nowrap;display:inline-flex;align-items:center;justify-content:center;}
 .ax-chip:hover{color:var(--text);border-color:var(--accent);background:rgba(61,126,255,.1);}
-.ax-x{bottom:4px;left:50%;transform:translateX(-50%);}
-.ax-y{left:4px;top:6px;}  /* QA r3-2: 회전 금지 — 가로 텍스트, 좌상단 모서리 */
+.ax-yv{writing-mode:vertical-rl;padding:10px 4px;}   /* r4-B: 시계방향 90°, 위→아래로 읽힘 */
 body.recording .ax-chip{opacity:.4;cursor:not-allowed;}
 .ctx-menu .cm-group{padding:6px 14px 3px;font-size:10px;font-weight:700;color:var(--text3);
   letter-spacing:.6px;text-transform:uppercase;}
@@ -563,12 +578,8 @@ body.light .code-block{color:#3a4a6b;background:#f8f9fc;}
 <!-- ── 차트 + 로그 ── -->
 <div style="flex:1;display:flex;flex-direction:column;overflow:hidden;">
   <div class="chart-area" id="chart-area">
-    <div class="chart-empty" id="chart-empty">
-      <div class="chart-empty-icon">📡</div>
-      <h3>센서를 활성화하세요</h3>
-      <p>좌측 패널에서 센서를 선택하면<br>실시간 차트가 표시됩니다.</p>
-    </div>
-    <div class="chart-grid" id="chart-grid" style="display:none;"></div>
+    <!-- r4-D: 그래프 워크스페이스 — 기본 1개, ⊕로 추가(최대 4), 헤더 드래그 도킹(1행 2열) -->
+    <div class="workspace" id="workspace"></div>
   </div>
   <div class="log-panel" id="log-panel">
     <div class="log-resize" id="log-resize" title="드래그: 높이 조절 · 더블클릭: 기본 높이"></div>
