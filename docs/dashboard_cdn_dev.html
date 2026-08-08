@@ -461,7 +461,7 @@ body.light .code-block{color:#3a4a6b;background:#f8f9fc;}
 
   <!-- 샘플레이트 -->
   <div class="sec">
-    <div class="sec-lbl">샘플레이트</div>
+    <div class="sec-lbl">Sample Rate</div>
     <div class="srate-wrap">
       <div>
         <div class="srate-row-lbl">실시간 (Hz)</div>
@@ -2317,6 +2317,8 @@ async function connectSerial(){
     startReadLoop(); sendSensorCfg();
     // r4-C: 보드가 이미 부팅된 상태면 부팅 배너가 다시 오지 않으므로 ID를 직접 조회
     setTimeout(()=>{ if(S.connected && S.connMode==='usb') sendCmd('ID?'); }, 400);
+    // 펌웨어 기본은 1Hz — UI에 표시된 현재 샘플레이트(기본 20Hz)를 연결 직후 동기화
+    setTimeout(()=>{ if(S.connected) sendCmd('RATE:'+S.hz); }, 700);
   }catch(e){if(e.name!=='NotFoundError')log('연결 실패: '+e.message,'err');}
 }
 async function disconnectSerial(){
@@ -2550,6 +2552,8 @@ async function setupBLEDevice(device){
   document.getElementById('conn-label').textContent='BLE: '+label;
   log(`BLE 연결 완료: ${label}`,'sys');
   sendSensorCfg();
+  // 펌웨어 기본은 1Hz — UI의 현재 샘플레이트(기본 20Hz)를 연결 직후 동기화
+  setTimeout(()=>{ if(S.bleConnected) sendCmd('RATE:'+S.hz); }, 300);
 }
 
 function onBLELine(line){
