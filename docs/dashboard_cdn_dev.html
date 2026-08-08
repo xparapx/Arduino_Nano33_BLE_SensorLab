@@ -1160,7 +1160,7 @@ function gaussSolve(A,b){                  // 부분 피벗 가우스 소거
       for(let k=c;k<=n;k++) M[r][k]-=f*M[c][k];
     }
   }
-  return M.map((row,i)=>row[n]/row[i][i]);
+  return M.map((row,i)=>row[n]/row[i]);
 }
 function fitLinear(pts){                   // y = a·x + b (최소제곱 닫힌해)
   const n=pts.length; if(n<2) return null;
