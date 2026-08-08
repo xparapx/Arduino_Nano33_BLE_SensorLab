@@ -7,7 +7,7 @@
 
     <data-containers>
         <container size="0">t</container>
-        <container size="0">gest</container>
+        <container size="0" init="0">gest</container>
     </data-containers>
 
     <input>
@@ -23,24 +23,14 @@
     <views>
     <view label="제스처">
         <info label="센서 위 3~10 cm에서 손을 한 방향으로 움직이세요." bold="true"/>
-        <separator height="0.3"/>
-        <value label="" size="6" precision="0" color="42eaff">
+        <value label="" size="4" precision="0" color="42eaff">
             <input>gest</input>
-            <map max="0.5">·</map>
+            <map max="0.5"></map>
             <map min="0.5" max="1.5">←</map>
             <map min="1.5" max="2.5">→</map>
             <map min="2.5" max="3.5">↑</map>
             <map min="3.5">↓</map>
         </value>
-        <value label="" size="1.5" precision="0" color="ffffff">
-            <input>gest</input>
-            <map max="0.5">손을 움직여 보세요</map>
-            <map min="0.5" max="1.5">왼쪽으로</map>
-            <map min="1.5" max="2.5">오른쪽으로</map>
-            <map min="2.5" max="3.5">아래에서 위로</map>
-            <map min="3.5">위에서 아래로</map>
-        </value>
-        <separator height="0.3"/>
     </view>
     <view label="안내">
         <info label="사용 방법" bold="true"/>
