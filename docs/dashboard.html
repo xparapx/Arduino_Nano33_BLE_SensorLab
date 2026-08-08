@@ -255,7 +255,7 @@ body.recording .ana-toolbar button{opacity:.4;cursor:not-allowed;}
   color:var(--text2);cursor:pointer;transition:all .14s;white-space:nowrap;}
 .ax-chip:hover{color:var(--text);border-color:var(--accent);background:rgba(61,126,255,.1);}
 .ax-x{bottom:4px;left:50%;transform:translateX(-50%);}
-.ax-y{left:2px;top:50%;transform:translate(0,-50%) rotate(180deg);writing-mode:vertical-rl;}
+.ax-y{left:4px;top:6px;}  /* QA r3-2: 회전 금지 — 가로 텍스트, 좌상단 모서리 */
 body.recording .ax-chip{opacity:.4;cursor:not-allowed;}
 .ctx-menu .cm-group{padding:6px 14px 3px;font-size:10px;font-weight:700;color:var(--text3);
   letter-spacing:.6px;text-transform:uppercase;}
@@ -689,14 +689,15 @@ details.adv summary:hover{color:var(--text2);}
 // ═══════════════════════════════════════════════
 // SENSORS
 // ═══════════════════════════════════════════════
+// 축 이름은 기호 표기 (QA r3-2: 칩·범례·성분 토글·결과 행·CSV 헤더 공통 — 한글 변수명 금지)
 const SENSORS = [
-  {id:'imu_acc', name:'가속도계', sub:'Accel XYZ',   axes:['Ax','Ay','Az'],     unit:'m/s²', color:'#3d7eff', lib:'IMU'},
-  {id:'imu_gyr', name:'자이로',   sub:'Gyro XYZ',    axes:['Gx','Gy','Gz'],     unit:'°/s',  color:'#a78bfa', lib:'IMU'},
-  {id:'imu_mag', name:'지자기',   sub:'Mag XYZ',     axes:['Mx','My','Mz'],     unit:'µT',   color:'#2dd4bf', lib:'IMU'},
-  {id:'temp_hum',name:'온습도',   sub:'Temp / Hum',  axes:['Temp','Hum'],       unit:'°C/%', color:'#f5a623', lib:'온습도'},
-  {id:'pressure',name:'기압',     sub:'Pressure',    axes:['hPa'],              unit:'hPa',  color:'#f472b6', lib:'LPS22HB'},
-  {id:'light',   name:'조도/근접',sub:'Prox/R/G/B',  axes:['Prox','R','G','B'], unit:'',     color:'#22d3a0', lib:'APDS9960'},
-  {id:'mic',     name:'마이크',   sub:'Sound Level', axes:['dB'],               unit:'dB',   color:'#ff4f6a', lib:'PDM'},
+  {id:'imu_acc', name:'가속도계', sub:'Accel XYZ',   axes:['Ax','Ay','Az'],     unit:'m/s²',  color:'#3d7eff', lib:'IMU'},
+  {id:'imu_gyr', name:'자이로',   sub:'Gyro XYZ',    axes:['Gx','Gy','Gz'],     unit:'°/s',   color:'#a78bfa', lib:'IMU'},
+  {id:'imu_mag', name:'지자기',   sub:'Mag XYZ',     axes:['Mx','My','Mz'],     unit:'µT',    color:'#2dd4bf', lib:'IMU'},
+  {id:'temp_hum',name:'온습도',   sub:'Temp / Hum',  axes:['T','RH'],           unit:'°C/%',  color:'#f5a623', lib:'온습도'},
+  {id:'pressure',name:'기압',     sub:'Pressure',    axes:['P'],                unit:'hPa',   color:'#f472b6', lib:'LPS22HB'},
+  {id:'light',   name:'조도/근접',sub:'Prox/R/G/B',  axes:['Prox','R','G','B'], unit:'counts',color:'#22d3a0', lib:'APDS9960'},
+  {id:'mic',     name:'마이크',   sub:'Sound Level', axes:['SPL'],              unit:'dB',    color:'#ff4f6a', lib:'PDM'},
 ];
 
 // ═══════════════════════════════════════════════
@@ -877,16 +878,16 @@ function rebuildCharts(){
         <button class="ax-chip ax-y" id="axy-${s.id}" title="y축 설정 (클릭)" onclick="axisMenuY('${s.id}',event)"></button>
         <div class="ana-toolbar" id="tb-${s.id}">
           <button data-tool="fitview" title="크기 최적화 (재클릭: 자동 복귀)" onclick="anaFitView('${s.id}',this)">
-            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 2H2v4M10 2h4v4M6 14H2v-4M10 14h4v-4"/></svg>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M9 3H3v6M15 3h6v6M9 21H3v-6M15 21h6v-6"/></svg>
           </button>
           <button data-tool="tangent" title="접선(기울기)" onclick="anaTangentToggle('${s.id}',this)">
-            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 13L13 3.5M3 13h10"/><circle cx="8" cy="8.2" r="1.3"/></svg>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M3 20 C 7.5 20, 8.5 6, 12 6 C 15.5 6, 16.5 20, 21 20"/><line x1="4" y1="13" x2="17" y2="3.5"/><circle cx="10.2" cy="7.6" r="1.4" fill="currentColor" stroke="none"/></svg>
           </button>
           <button data-tool="integral" title="면적(적분) — 구간 드래그 필요" onclick="event.stopPropagation();anaIntegral('${s.id}')">
-            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M10.5 2.2c-2 0-2.5 1.4-2.5 3.4v4.8c0 2-.5 3.4-2.5 3.4"/><path d="M4.5 13.8h.01M11.5 2.2h.01"/></svg>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M15.5 3.5c-3 0-3.5 2-3.5 5v7c0 3-.5 5-3.5 5"/><path d="M6.8 20.5h.01M17.2 3.5h.01"/></svg>
           </button>
           <button data-tool="fit" title="구간 피팅 — 구간 드래그 필요" onclick="event.stopPropagation();anaFitOpen('${s.id}')">
-            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 13c3-1 4-7 6-7s3 5 6 4"/><path d="M2 13h12" stroke-dasharray="2 2"/></svg>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M3 19 C 7 8, 13 4.5, 21 7.5"/><circle cx="5.5" cy="16.5" r="1.5" fill="currentColor" stroke="none"/><circle cx="9" cy="8.5" r="1.5" fill="currentColor" stroke="none"/><circle cx="13.5" cy="7" r="1.5" fill="currentColor" stroke="none"/><circle cx="18.5" cy="8.5" r="1.5" fill="currentColor" stroke="none"/></svg>
           </button>
         </div>
       </div>
@@ -941,12 +942,13 @@ function createChart(s){
     };
   }
 
-  // R0: x축은 linear — 접선/적분/피팅/XY 플롯의 전제. XY 모드는 선택 변수 라벨·단위 표기
+  // R0: x축은 linear — 접선/적분/피팅/XY 플롯의 전제.
+  // QA r3-1: Chart.js 축 타이틀은 전부 끔 — 축 칩이 유일한 축 라벨 (겹침 제거)
   const xScale={
     type:'linear',
     grid:{color:gridColor()},
     ticks:{maxTicksLimit:7,font:{size:9},callback:v=>(+v).toFixed(1)},
-    title:{display:true,text:isXY?`${cfg.xLabel}${cfg.xUnit?` (${cfg.xUnit})`:''}`:'시간 (s)',font:{size:9}},
+    title:{display:false},
   };
   const scalesOpt = isTempHum ? {
     x:xScale,
@@ -954,13 +956,13 @@ function createChart(s){
       type:'linear', position:'left',
       grid:{color:gridColor()},
       ticks:{font:{size:9},maxTicksLimit:5,color:'#f5a623'},
-      title:{display:true,text:'°C',font:{size:9},color:'#f5a623'},
+      title:{display:false},
     },
     yHum:{
       type:'linear', position:'right',
       grid:{drawOnChartArea:false},
       ticks:{font:{size:9},maxTicksLimit:5,color:'#aaa'},
-      title:{display:true,text:'%',font:{size:9},color:'#aaa'},
+      title:{display:false},
       min:0, max:100,
     },
   } : {
@@ -968,7 +970,7 @@ function createChart(s){
     y:{
       grid:{color:gridColor()},
       ticks:{font:{size:9},maxTicksLimit:5},
-      ...(isXY ? {title:{display:true,text:`${cfg.yLabel}${cfg.yUnit?` (${cfg.yUnit})`:''}`,font:{size:9}}} : {}),
+      title:{display:false},
     },
   };
 
@@ -1007,14 +1009,15 @@ function _xyVarOptions(includeTime){
   const opts=[];
   if(includeTime) opts.push({v:'time', label:'시간 (s)'});
   SENSORS.filter(s=>S.active.has(s.id)).forEach(s=>{
-    s.axes.forEach((ax,i)=>opts.push({v:`${s.id}:${i}`, label:`${s.name}·${ax}`, unit:s.unit}));
+    // 메뉴에는 "센서명 기호"로 표시하되, 칩·CSV에 쓰는 label은 기호만 (QA r3-2)
+    s.axes.forEach((ax,i)=>opts.push({v:`${s.id}:${i}`, label:`${s.name} ${ax}`, unit:s.unit}));
   });
   return opts;
 }
 function _parseVar(v){
   const [sid,axis]=v.split(':');
   const s=SENSORS.find(x=>x.id===sid);
-  return {sid, axis:+axis, label:`${s.name}·${s.axes[+axis]}`, unit:s.unit||''};
+  return {sid, axis:+axis, label:s.axes[+axis], unit:s.unit||''};   // label = 기호만
 }
 
 // B-1: ⚙ 팝오버는 축 칩 방식으로 대체·제거됨. #xy-pop 컨테이너는 영역 피팅 대화상자가 사용.
@@ -1158,6 +1161,7 @@ function toggleSeries(sid, i){
   off.has(i)?off.delete(i):off.add(i);
   applySeriesVisibility(sid);
   renderSeriesToggles(sid);
+  updateAxisChips(sid);                            // y칩의 기호 나열 갱신 (QA r3-2)
   if(S.roi.show && S.roi.sid===sid) clearRoi();   // 선택 데이터 구성이 바뀌므로 해제
 }
 function applySeriesVisibility(sid){
@@ -1899,7 +1903,15 @@ function updateAxisChips(sid){
   const xc=document.getElementById('axx-'+sid);
   const yc=document.getElementById('axy-'+sid);
   if(xc) xc.textContent = isXY ? `${cfg.xLabel}${cfg.xUnit?` (${cfg.xUnit})`:''}` : '시간 (s)';
-  if(yc) yc.textContent = isXY ? `${cfg.yLabel}${cfg.yUnit?` (${cfg.yUnit})`:''}` : `${s.name}${s.unit?` (${s.unit})`:''}`;
+  if(yc){
+    // QA r3-2: 가로 텍스트, "기호 (단위)"만 — 시간 모드는 켜진 성분 기호를 나열
+    if(isXY) yc.textContent=`${cfg.yLabel}${cfg.yUnit?` (${cfg.yUnit})`:''}`;
+    else {
+      const off=_offSet(sid);
+      const syms=s.axes.filter((a,i)=>!off.has(i));
+      yc.textContent=`${syms.length?syms.join('·'):'—'}${s.unit?` (${s.unit})`:''}`;
+    }
+  }
 }
 function _firstEnabledAxis(sid){
   const s=SENSORS.find(x=>x.id===sid);
@@ -1916,7 +1928,7 @@ function axisSelectX(sid, v){
   else {
     const s=SENSORS.find(t=>t.id===sid);
     const yi=_firstEnabledAxis(sid);
-    y={sid, axis:yi, label:`${s.name}·${s.axes[yi]}`, unit:s.unit||''};
+    y={sid, axis:yi, label:s.axes[yi], unit:s.unit||''};   // 기호만 (QA r3-2)
   }
   S.chartCfg[sid]={mode:'xy', x, y, xLabel:x.label, yLabel:y.label, xUnit:x.unit, yUnit:y.unit};
   S.xyRecorded[sid]=[];
