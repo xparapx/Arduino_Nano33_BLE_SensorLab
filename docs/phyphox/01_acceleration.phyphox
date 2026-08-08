@@ -1,0 +1,94 @@
+<phyphox xmlns="http://phyphox.org/xml" version="1.14">
+    <title>가속도 (Nano BLE)</title>
+    <category>Nano 33 BLE Sense</category>
+    <description>BMI270 IMU로 3축 가속도를 측정합니다. 정지 상태에서 |a| ≈ 1 g 입니다.</description>
+
+    <data-containers>
+        <container size="0">t</container>
+        <container size="0">vx</container>
+        <container size="0">vy</container>
+        <container size="0">vz</container>
+        <container size="0">vm</container>
+    </data-containers>
+
+    <input>
+        <bluetooth name="Nano" mode="notification" subscribeOnStart="true">
+        <config char="cddf1003-30f7-4671-8b43-5e40ba53514a" conversion="hexadecimal">0000803f</config>
+        <output char="cddf1002-30f7-4671-8b43-5e40ba53514a" conversion="float32LittleEndian" offset="0">t</output>
+        <output char="cddf1002-30f7-4671-8b43-5e40ba53514a" conversion="float32LittleEndian" offset="4">vx</output>
+        <output char="cddf1002-30f7-4671-8b43-5e40ba53514a" conversion="float32LittleEndian" offset="8">vy</output>
+        <output char="cddf1002-30f7-4671-8b43-5e40ba53514a" conversion="float32LittleEndian" offset="12">vz</output>
+        <output char="cddf1002-30f7-4671-8b43-5e40ba53514a" conversion="float32LittleEndian" offset="16">vm</output>
+        </bluetooth>
+    </input>
+
+    <analysis sleep="0" onUserInput="false"></analysis>
+
+    <views>
+    <view label="그래프">
+        <graph label="가속도 (x·y·z)" labelX="시간" unitX="s" labelY="가속도" unitY="g" partialUpdate="true" style="lines" lineWidth="1.5">
+            <input axis="x">t</input>
+            <input axis="y" color="ff5252">vx</input>
+            <input axis="x">t</input>
+            <input axis="y" color="69f0ae">vy</input>
+            <input axis="x">t</input>
+            <input axis="y" color="40c4ff">vz</input>
+        </graph>
+        <graph label="크기 |v|" labelX="시간" unitX="s" labelY="|v|" unitY="g" partialUpdate="true" style="lines" lineWidth="2">
+            <input axis="x">t</input>
+            <input axis="y" color="ffd740">vm</input>
+        </graph>
+    </view>
+    <view label="성분별">
+        <graph label="x 성분" labelX="시간" unitX="s" labelY="x" unitY="g" partialUpdate="true" style="lines" lineWidth="1.5">
+            <input axis="x">t</input>
+            <input axis="y" color="ff5252">vx</input>
+        </graph>
+        <graph label="y 성분" labelX="시간" unitX="s" labelY="y" unitY="g" partialUpdate="true" style="lines" lineWidth="1.5">
+            <input axis="x">t</input>
+            <input axis="y" color="69f0ae">vy</input>
+        </graph>
+        <graph label="z 성분" labelX="시간" unitX="s" labelY="z" unitY="g" partialUpdate="true" style="lines" lineWidth="1.5">
+            <input axis="x">t</input>
+            <input axis="y" color="40c4ff">vz</input>
+        </graph>
+    </view>
+    <view label="측정값">
+        <info label="실시간 측정값 (x=빨강, y=초록, z=파랑)" bold="true"/>
+        <separator height="0.3"/>
+        <value label="x" size="2" precision="3" unit="g" color="ff5252">
+            <input>vx</input>
+        </value>
+        <value label="y" size="2" precision="3" unit="g" color="69f0ae">
+            <input>vy</input>
+        </value>
+        <value label="z" size="2" precision="3" unit="g" color="40c4ff">
+            <input>vz</input>
+        </value>
+        <separator height="0.3"/>
+        <value label="크기 |v|" size="3" precision="3" unit="g" color="ffd740">
+            <input>vm</input>
+        </value>
+    </view>
+    <view label="안내">
+        <info label="사용 방법" bold="true"/>
+        <separator height="0.3"/>
+        <info label="1. Nano 33 보드의 전원을 켭니다 (연결되면 LED가 초록색)."/>
+        <info label="2. 재생(▶) 버튼을 누르면 자동으로 연결되어 측정이 시작됩니다."/>
+        <info label="3. 일시정지 후 다시 시작하면 이어서 기록됩니다. 휴지통 아이콘으로 초기화."/>
+        <info label="4. 데이터 저장: 우측 상단 메뉴 → '데이터 내보내기' (CSV / Excel)."/>
+        <separator height="0.3"/>
+        <info label="센서: BMI270, 중력 포함 가속도. 1 g = 9.81 m/s²"/>
+    </view>
+    </views>
+
+    <export>
+        <set name="가속도 데이터">
+            <data name="t (s)">t</data>
+            <data name="x (g)">vx</data>
+            <data name="y (g)">vy</data>
+            <data name="z (g)">vz</data>
+            <data name="|v| (g)">vm</data>
+        </set>
+    </export>
+</phyphox>
