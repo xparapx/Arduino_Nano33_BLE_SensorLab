@@ -186,7 +186,83 @@ header{display:flex;align-items:center;justify-content:space-between;padding:0 1
 .lv{display:flex;flex-direction:column;align-items:flex-end;font-size:11px;}
 .lv-num{font-weight:700;font-family:'JetBrains Mono','Fira Code',monospace;}
 .lv-lbl{font-size:9px;color:var(--text3);}
-.chart-body{padding:8px 12px 12px;}
+.chart-body{padding:8px 12px 12px;position:relative;}
+.chart-body canvas{touch-action:pan-y;}  /* 모바일: 세로 스크롤 유지, 가로 드래그는 ROI 선택 */
+
+/* ── 컨텍스트 메뉴 (L-5 규격) ── */
+.ctx-menu{position:fixed;z-index:200;max-width:260px;min-width:200px;display:none;
+  background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r);
+  box-shadow:0 10px 34px var(--shadow);overflow:hidden;padding:4px 0;}
+.ctx-menu.show{display:block;}
+.ctx-menu .cm-head{padding:7px 14px;font-size:11px;color:var(--text3);
+  font-family:'JetBrains Mono','Fira Code',monospace;border-bottom:1px solid var(--border);}
+.ctx-menu .cm-item{height:36px;display:flex;align-items:center;padding:0 14px;
+  font-size:12.5px;color:var(--text);cursor:pointer;transition:background .12s;}
+.ctx-menu .cm-item:hover{background:var(--bg3);}
+@media (max-width:480px){
+  .ctx-menu{left:0!important;right:0!important;bottom:0!important;top:auto!important;
+    max-width:none;border-radius:var(--rl) var(--rl) 0 0;}
+  .ctx-menu .cm-item{height:44px;}
+}
+
+/* ── 분석 툴바 (L-1·2 규격: 32px 버튼·4px 간격·반투명+블러·호버 페이드) ── */
+.ana-toolbar{position:absolute;top:12px;right:16px;display:flex;flex-direction:column;gap:4px;
+  z-index:5;opacity:0;transition:opacity .18s;}
+.chart-card:hover .ana-toolbar{opacity:1;}
+@media (hover:none){.ana-toolbar{opacity:1;}}
+.ana-toolbar button{width:32px;height:32px;border-radius:8px;border:1px solid var(--border2);
+  background:color-mix(in srgb, var(--bg2) 80%, transparent);backdrop-filter:blur(6px);
+  color:var(--text2);cursor:pointer;display:flex;align-items:center;justify-content:center;
+  padding:0;transition:all .14s;}
+.ana-toolbar button:hover{color:var(--text);border-color:var(--text3);}
+.ana-toolbar button.on{background:rgba(45,212,191,.16);border-color:var(--teal);color:var(--teal);}
+body.recording .ana-toolbar button{opacity:.4;cursor:not-allowed;}
+.ana-toolbar svg{width:15px;height:15px;}
+@media (max-width:480px){
+  .ana-toolbar{position:static;flex-direction:row;justify-content:flex-end;margin-top:6px;opacity:1;}
+}
+
+/* ── 분석 결과 접이식 행 (L-3) ── */
+.ana-result{border-top:1px solid var(--border);padding:0 13px;}
+.ana-result summary{cursor:pointer;font-size:11px;color:var(--text3);padding:7px 0;
+  list-style:none;display:flex;align-items:center;gap:8px;user-select:none;}
+.ana-result summary::-webkit-details-marker{display:none;}
+.ana-result summary::before{content:'▸';}
+.ana-result[open] summary::before{content:'▾';}
+.ar-tools{margin-left:auto;display:flex;gap:4px;}
+.ar-tools button{font-size:10px;padding:2px 8px;border-radius:5px;border:1px solid var(--border);
+  background:var(--bg3);color:var(--text2);cursor:pointer;font-family:inherit;}
+.ar-tools button:hover{color:var(--text);}
+.ar-body{padding:0 0 9px;}
+.ar-row{font-size:11.5px;color:var(--text2);padding:3px 0;line-height:1.55;}
+.ar-row b{color:var(--text);}
+.ar-val{font-family:'JetBrains Mono','Fira Code',monospace;color:var(--teal);font-weight:600;}
+.ar-eq{font-family:'JetBrains Mono','Fira Code',monospace;color:var(--amber);}
+.ar-unit{color:var(--text3);}
+.ar-rng{color:var(--text3);font-size:10px;}
+
+/* ── XY 설정 (⚙ 버튼 + 앵커 팝오버, L-6) ── */
+.xy-gear{width:26px;height:26px;flex-shrink:0;border-radius:7px;border:1px solid var(--border);
+  background:var(--bg3);color:var(--text3);cursor:pointer;display:flex;align-items:center;
+  justify-content:center;transition:all .14s;padding:0;}
+.xy-gear svg{width:14px;height:14px;}
+.xy-gear:hover{color:var(--text);border-color:var(--border2);}
+body.recording .xy-gear{opacity:.4;cursor:not-allowed;}
+.xy-pop{position:fixed;z-index:210;width:240px;display:none;
+  background:var(--bg2);border:1px solid var(--border2);border-radius:var(--rl);
+  box-shadow:0 12px 40px var(--shadow);padding:13px 14px;}
+.xy-pop.show{display:block;}
+.xy-pop .xp-title{font-size:12px;font-weight:700;margin-bottom:9px;}
+.xy-pop .xp-lbl{display:block;font-size:10px;color:var(--text3);margin:6px 0 3px;}
+.xy-pop .xp-sel{width:100%;background:var(--bg3);border:1px solid var(--border2);color:var(--text);
+  border-radius:7px;padding:6px 8px;font-size:12px;font-family:inherit;outline:none;}
+.xy-pop .xp-btns{display:flex;gap:6px;margin-top:10px;}
+
+/* ── ROI 힌트 툴팁 ── */
+.roi-hint{position:fixed;z-index:190;transform:translateX(-50%);pointer-events:none;
+  background:var(--bg4);border:1px solid var(--border2);border-radius:7px;
+  padding:5px 11px;font-size:11px;color:var(--text2);opacity:0;transition:opacity .25s;}
+.roi-hint.show{opacity:1;}
 
 /* ── 시리얼 로그 ── */
 .log-panel{height:108px;background:var(--bg);border-top:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;}
@@ -233,6 +309,24 @@ body.light .code-block{color:#3a4a6b;background:#f8f9fc;}
 .ide-info a{color:var(--accent2);text-decoration:none;}
 .ide-info a:hover{text-decoration:underline;}
 .xs{font-size:10px;color:var(--text3);}
+
+/* 저장된 보드 칩 */
+.chip-list{display:flex;flex-wrap:wrap;gap:5px;}
+.bchip{display:inline-flex;align-items:center;gap:6px;padding:5px 8px 5px 10px;
+  border-radius:20px;border:1px solid rgba(167,139,250,.35);background:rgba(167,139,250,.08);
+  color:var(--text);font-size:11px;font-weight:600;cursor:pointer;transition:all .13s;user-select:none;}
+.bchip:hover{background:rgba(167,139,250,.18);}
+.bchip .bid{font-family:'JetBrains Mono','Fira Code',monospace;font-size:10px;color:var(--text3);font-weight:400;}
+.bchip .bx{width:14px;height:14px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font-size:10px;color:var(--text3);background:transparent;border:none;cursor:pointer;line-height:1;}
+.bchip .bx:hover{color:var(--red);background:rgba(255,79,106,.15);}
+
+/* 고급 접이식 */
+details.adv summary{cursor:pointer;font-size:11px;color:var(--text3);list-style:none;user-select:none;}
+details.adv summary::-webkit-details-marker{display:none;}
+details.adv summary::before{content:'▸ ';color:var(--text3);}
+details.adv[open] summary::before{content:'▾ ';}
+details.adv summary:hover{color:var(--text2);}
 
 /* 연결 모드 버튼 */
 .conn-mode-btn{
@@ -318,39 +412,23 @@ body.light .code-block{color:#3a4a6b;background:#f8f9fc;}
     <div id="panel-ble" style="display:none;">
       <div class="ble-pin-wrap">
 
-        <!-- DEVICE ID 안내 -->
-        <div style="background:rgba(167,139,250,0.08);border:1px solid rgba(167,139,250,0.25);
-             border-radius:var(--r);padding:9px 11px;margin-bottom:8px;">
-          <div style="font-size:10px;font-weight:700;color:var(--purple);margin-bottom:5px;letter-spacing:.5px;">
-            DEVICE ID 확인 방법
-          </div>
-          <div class="xs" style="color:var(--text2);line-height:1.7;">
-            최초 1회: USB 연결 → 시리얼 모니터<br>
-            <span style="font-family:var(--font);color:var(--green);"># DEVICE ID : A3F7</span><br>
-            보드에 스티커 부착 → 이후 무선 사용
-          </div>
+        <!-- 기본 흐름: ID 입력 없이 연결 → 선택창에는 우리 보드(BLE-*)만 표시 -->
+        <button class="btn primary full" onclick="connectBLE()" id="ble-connect-btn"
+          style="width:100%;padding:9px;margin-bottom:6px;">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" style="width:13px;height:13px;">
+            <path d="M4 4l8 8M12 4l-8 8M8 1l4 3-4 3V1zM8 15l-4-3 4-3v6z"/>
+          </svg>
+          BLE 연결
+        </button>
+        <div class="xs" style="margin-bottom:8px;color:var(--text2);line-height:1.6;">
+          선택창에서 <span style="color:var(--purple);">BLE-XXXX</span> 보드를 고르면 ID를 자동으로
+          읽고, 처음 보는 보드면 별명을 물어봅니다.
         </div>
 
-        <!-- ID 입력 -->
-        <div style="margin-bottom:6px;">
-          <div class="xs" style="margin-bottom:4px;color:var(--text2);">보드 DEVICE ID (4자리)</div>
-          <input type="text" id="ble-pin" maxlength="4" placeholder="예) A3F7"
-            style="width:100%;background:var(--bg3);border:1px solid var(--border2);
-                   color:var(--text);border-radius:var(--r);padding:10px;
-                   font-size:20px;font-weight:700;text-align:center;
-                   letter-spacing:8px;outline:none;font-family:var(--font);
-                   text-transform:uppercase;margin-bottom:6px;"
-            oninput="this.value=this.value.toUpperCase().replace(/[^0-9A-F]/g,'');
-                     const v=this.value.padEnd(4,'?').slice(0,4);
-                     document.getElementById('ble-name-preview').textContent='BLE-'+v;"
-            onkeydown="if(event.key==='Enter')connectBLE()">
-          <button class="btn primary full" onclick="connectBLE()" id="ble-connect-btn"
-            style="width:100%;padding:9px;">
-            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" style="width:13px;height:13px;">
-              <path d="M4 4l8 8M12 4l-8 8M8 1l4 3-4 3V1zM8 15l-4-3 4-3v6z"/>
-            </svg>
-            BLE 연결
-          </button>
+        <!-- 저장된 보드 (별명 칩) -->
+        <div id="ble-known-wrap" style="display:none;margin-bottom:8px;">
+          <div class="xs" style="margin-bottom:4px;color:var(--text2);">저장된 보드 — 클릭하면 재연결</div>
+          <div class="chip-list" id="ble-known"></div>
         </div>
 
         <!-- 연결된 장치 정보 -->
@@ -362,12 +440,38 @@ body.light .code-block{color:#3a4a6b;background:#f8f9fc;}
 
         <button class="btn full" id="ble-disconnect-btn" onclick="disconnectBLE()" disabled
           style="font-size:11px;">BLE 연결 해제</button>
+
+        <!-- 고급: DEVICE ID 수동 지정 (비상용) -->
+        <details class="adv" id="ble-advanced" style="margin-top:8px;">
+          <summary>고급 — DEVICE ID 수동 지정</summary>
+          <div style="padding:8px 0 2px;">
+            <div class="xs" style="color:var(--text2);line-height:1.7;margin-bottom:6px;">
+              USB 연결 → 시리얼 모니터의
+              <span style="font-family:var(--font);color:var(--green);"># DEVICE ID : A3F7</span>
+              4자리를 입력하면 그 보드만 정확 필터로 찾습니다.
+            </div>
+            <input type="text" id="ble-pin" maxlength="4" placeholder="예) A3F7"
+              style="width:100%;background:var(--bg3);border:1px solid var(--border2);
+                     color:var(--text);border-radius:var(--r);padding:8px;
+                     font-size:16px;font-weight:700;text-align:center;
+                     letter-spacing:6px;outline:none;font-family:var(--font);
+                     text-transform:uppercase;margin-bottom:6px;"
+              oninput="this.value=this.value.toUpperCase().replace(/[^0-9A-F]/g,'');
+                       const v=this.value.padEnd(4,'?').slice(0,4);
+                       document.getElementById('ble-name-preview').textContent='BLE-'+v;"
+              onkeydown="if(event.key==='Enter')connectBLEManual()">
+            <button class="btn full" onclick="connectBLEManual()" style="font-size:11px;">ID로 연결</button>
+            <div class="xs" style="margin-top:6px;">
+              장치명: <span style="font-family:var(--font);color:var(--purple);" id="ble-name-preview">BLE-????</span>
+            </div>
+          </div>
+        </details>
       </div>
 
       <div class="xs" style="margin-top:8px;padding:7px 9px;background:var(--bg3);
            border-radius:6px;border:1px solid var(--border);line-height:1.7;color:var(--text2);">
-        BLE 장치명: <span style="font-family:var(--font);color:var(--purple);" id="ble-name-preview">BLE-????</span><br>
-        ※ Chrome / Edge 필요 &nbsp;·&nbsp; 20Hz 이하 권장
+        ※ Chrome / Edge 필요 &nbsp;·&nbsp; 20Hz 이하 권장<br>
+        ※ 보안 정책상 <b>최초 1회는 선택창에서 장치를 골라야</b> 하며, 별명은 이후 재연결을 1클릭으로 만듭니다.
       </div>
     </div>
   </div>
@@ -469,6 +573,7 @@ body.light .code-block{color:#3a4a6b;background:#f8f9fc;}
     </div>
     <button class="btn full" id="exp-clear" onclick="clearData()" disabled style="margin-top:5px;font-size:11px;">데이터 초기화</button>
     <div class="xs" style="margin-top:5px;text-align:center;">저장: <span id="rec-count">0</span>개 · <span id="exp-range">—</span></div>
+    <div class="xs" style="margin-top:5px;text-align:center;" title="차트 버퍼는 롤링이라 화면에 보이는 구간만 선택할 수 있습니다.">수집 정지 후 차트 드래그로 구간 선택 → 우클릭 메뉴</div>
   </div>
 
   <!-- 데모 -->
@@ -506,6 +611,11 @@ body.light .code-block{color:#3a4a6b;background:#f8f9fc;}
 
 </div>
 </div>
+
+<!-- ── ROI 컨텍스트 메뉴 / 힌트 / XY 설정 팝오버 ── -->
+<div class="ctx-menu" id="ctx-menu"></div>
+<div class="roi-hint" id="roi-hint">우클릭으로 내보내기·분석</div>
+<div class="xy-pop" id="xy-pop"></div>
 
 <!-- ── 펌웨어 모달 ── -->
 <div class="modal-overlay" id="modal">
@@ -581,7 +691,7 @@ const SENSORS = [
 // ═══════════════════════════════════════════════
 const S = {
   port:null, writer:null, connected:false,
-  recording:false, chartLive:false, demoMode:false, demoTimer:null,
+  recording:false, demoMode:false, demoTimer:null,
   active:new Set(),
   hz:1, bufSize:10, longTermMin:0,
   ltTimer:null, ltSegStart:null,
@@ -671,7 +781,7 @@ function setSR(el, type){
 function trimAllBufs(){
   Object.keys(S.chartData).forEach(id=>{
     const cd=S.chartData[id];
-    while(cd.labels.length>S.bufSize){cd.labels.shift();cd.datasets.forEach(d=>d.data.shift());}
+    cd.datasets.forEach(d=>{while(d.data.length>S.bufSize) d.data.shift();});
   });
 }
 
@@ -727,15 +837,6 @@ function rebuildCharts(){
 
   active.forEach(s=>{
     if(S.charts[s.id]) return;
-    S.chartData[s.id]={
-      labels:[],
-      datasets:s.axes.map((ax,i)=>({
-        label:ax, data:[],
-        borderColor:colorVar(s.color,i,s.axes.length),
-        backgroundColor:'transparent',
-        borderWidth:1.5, pointRadius:0, tension:0.3,
-      }))
-    };
     const card=document.createElement('div');
     card.className='chart-card'; card.id='cc-'+s.id;
     card.innerHTML=`
@@ -744,70 +845,237 @@ function rebuildCharts(){
           <div class="chart-bar" style="background:${s.color}"></div>
           <div>
             <div class="chart-title">${s.name} <span style="color:var(--text3);font-weight:400;font-size:11px;">${s.sub}</span></div>
-            <div class="chart-sub">${s.lib} · ${s.unit||'—'}</div>
+            <div class="chart-sub" id="csub-${s.id}">${s.lib} · ${s.unit||'—'}</div>
           </div>
         </div>
-        <div class="live-vals" id="lv-${s.id}">
-          ${s.axes.map((ax,i)=>`<div class="lv" style="color:${colorVar(s.color,i,s.axes.length)}">
-            <div class="lv-num" id="lvn-${s.id}-${i}">—</div>
-            <div class="lv-lbl">${ax}</div>
-          </div>`).join('')}
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div class="live-vals" id="lv-${s.id}">
+            ${s.axes.map((ax,i)=>`<div class="lv" style="color:${colorVar(s.color,i,s.axes.length)}">
+              <div class="lv-num" id="lvn-${s.id}-${i}">—</div>
+              <div class="lv-lbl">${ax}</div>
+            </div>`).join('')}
+          </div>
+          <button class="xy-gear" id="gear-${s.id}" title="XY 변수 설정" onclick="xyGearOpen('${s.id}',event)">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="2.2"/><path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M12.6 3.4l-1.4 1.4M4.8 11.2l-1.4 1.4"/></svg>
+          </button>
         </div>
       </div>
-      <div class="chart-body"><canvas id="cv-${s.id}" height="${h}"></canvas></div>`;
+      <div class="chart-body">
+        <canvas id="cv-${s.id}" height="${h}"></canvas>
+        <div class="ana-toolbar" id="tb-${s.id}">
+          <button data-tool="fitview" title="크기 최적화 (재클릭: 자동 복귀)" onclick="anaFitView('${s.id}',this)">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 2H2v4M10 2h4v4M6 14H2v-4M10 14h4v-4"/></svg>
+          </button>
+          <button data-tool="tangent" title="접선(기울기)" onclick="anaTangentToggle('${s.id}',this)">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 13L13 3.5M3 13h10"/><circle cx="8" cy="8.2" r="1.3"/></svg>
+          </button>
+          <button data-tool="integral" title="면적(적분) — 구간 드래그 필요" onclick="anaIntegral('${s.id}')">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M10.5 2.2c-2 0-2.5 1.4-2.5 3.4v4.8c0 2-.5 3.4-2.5 3.4"/><path d="M4.5 13.8h.01M11.5 2.2h.01"/></svg>
+          </button>
+          <button data-tool="fit" title="구간 피팅 — 구간 드래그 필요" onclick="anaFitOpen('${s.id}')">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 13c3-1 4-7 6-7s3 5 6 4"/><path d="M2 13h12" stroke-dasharray="2 2"/></svg>
+          </button>
+        </div>
+      </div>
+      <details class="ana-result" id="ar-${s.id}">
+        <summary>분석 결과
+          <span class="ar-tools">
+            <button onclick="event.stopPropagation();event.preventDefault();anaCopy('${s.id}')">복사</button>
+            <button onclick="event.stopPropagation();event.preventDefault();anaClearChart('${s.id}')">지우기</button>
+          </span>
+        </summary>
+        <div class="ar-body" id="arb-${s.id}"></div>
+      </details>`;
     grid.appendChild(card);
-    const ctx=document.getElementById('cv-'+s.id).getContext('2d');
-
-    // temp_hum은 Temp(°C)와 Hum(%)의 스케일이 달라 독립 y축 적용
-    const isTempHum = s.id === 'temp_hum';
-    const chartDatasets = isTempHum
-      ? s.axes.map((ax,i)=>({
-          label:ax, data:[],
-          borderColor:colorVar(s.color,i,s.axes.length),
-          backgroundColor:'transparent',
-          borderWidth:1.5, pointRadius:0, tension:0.3,
-          yAxisID: i===0 ? 'yTemp' : 'yHum',
-        }))
-      : S.chartData[s.id].datasets;
-
-    if(isTempHum) S.chartData[s.id].datasets = chartDatasets;
-
-    const scalesOpt = isTempHum ? {
-      x:{grid:{color:S.theme==='dark'?'rgba(255,255,255,0.04)':'rgba(0,0,0,0.05)'},ticks:{maxTicksLimit:7,font:{size:9}}},
-      yTemp:{
-        type:'linear', position:'left',
-        grid:{color:S.theme==='dark'?'rgba(255,255,255,0.04)':'rgba(0,0,0,0.05)'},
-        ticks:{font:{size:9},maxTicksLimit:5,color:'#f5a623'},
-        title:{display:true,text:'°C',font:{size:9},color:'#f5a623'},
-      },
-      yHum:{
-        type:'linear', position:'right',
-        grid:{drawOnChartArea:false},
-        ticks:{font:{size:9},maxTicksLimit:5,color:'#aaa'},
-        title:{display:true,text:'%',font:{size:9},color:'#aaa'},
-        min:0, max:100,
-      },
-    } : {
-      x:{grid:{color:S.theme==='dark'?'rgba(255,255,255,0.04)':'rgba(0,0,0,0.05)'},ticks:{maxTicksLimit:7,font:{size:9}}},
-      y:{
-        grid:{color:S.theme==='dark'?'rgba(255,255,255,0.04)':'rgba(0,0,0,0.05)'},
-        ticks:{font:{size:9},maxTicksLimit:5},
-      },
-    };
-
-    S.charts[s.id]=new Chart(ctx,{
-      type:'line', data:S.chartData[s.id],
-      options:{
-        animation:false, responsive:true, maintainAspectRatio:false,
-        plugins:{
-          legend:{display:s.axes.length>1,position:'top',labels:{boxWidth:8,boxHeight:8,padding:8,font:{size:10}}},
-          tooltip:{mode:'index',intersect:false,callbacks:{label:c=>` ${c.dataset.label}: ${c.parsed.y?.toFixed(isTempHum?1:3)??'—'}`}}
-        },
-        scales: scalesOpt,
-        interaction:{mode:'index',intersect:false}
-      }
-    });
+    createChart(s);
   });
+}
+
+// 차트 인스턴스 생성 — S.chartCfg[sid]에 따라 시간 모드 / XY 모드
+function createChart(s){
+  const sid=s.id;
+  const cfg=S.chartCfg[sid];
+  const isXY = cfg && cfg.mode==='xy';
+  const canvas=document.getElementById('cv-'+sid);
+  if(!canvas) return;
+  if(S.charts[sid]){ S.charts[sid].destroy(); delete S.charts[sid]; }
+  const ctx=canvas.getContext('2d');
+
+  const gridColor=()=>S.theme==='dark'?'rgba(255,255,255,0.04)':'rgba(0,0,0,0.05)';
+
+  // temp_hum은 Temp(°C)와 Hum(%)의 스케일이 달라 독립 y축 적용 (시간 모드 한정)
+  const isTempHum = !isXY && sid === 'temp_hum';
+
+  if(isXY){
+    // XY 모드: 페어링된 {x,y} 단일 시리즈 (시간순 연결 궤적)
+    S.chartData[sid]={
+      datasets:[{
+        label:`${cfg.yLabel}`, data:[],
+        borderColor:s.color, backgroundColor:'transparent',
+        borderWidth:1.2, pointRadius:1.5, tension:0,
+      }]
+    };
+  } else {
+    // R0: x축 숫자축 — 각 포인트는 {x: elapsed_s, y: value}
+    S.chartData[sid]={
+      datasets:s.axes.map((ax,i)=>({
+        label:ax, data:[],
+        borderColor:colorVar(s.color,i,s.axes.length),
+        backgroundColor:'transparent',
+        borderWidth:1.5, pointRadius:0, tension:0.3,
+        ...(isTempHum ? {yAxisID: i===0?'yTemp':'yHum'} : {}),
+      }))
+    };
+  }
+
+  // R0: x축은 linear — 접선/적분/피팅/XY 플롯의 전제. XY 모드는 선택 변수 라벨·단위 표기
+  const xScale={
+    type:'linear',
+    grid:{color:gridColor()},
+    ticks:{maxTicksLimit:7,font:{size:9},callback:v=>(+v).toFixed(1)},
+    title:{display:true,text:isXY?`${cfg.xLabel}${cfg.xUnit?` (${cfg.xUnit})`:''}`:'시간 (s)',font:{size:9}},
+  };
+  const scalesOpt = isTempHum ? {
+    x:xScale,
+    yTemp:{
+      type:'linear', position:'left',
+      grid:{color:gridColor()},
+      ticks:{font:{size:9},maxTicksLimit:5,color:'#f5a623'},
+      title:{display:true,text:'°C',font:{size:9},color:'#f5a623'},
+    },
+    yHum:{
+      type:'linear', position:'right',
+      grid:{drawOnChartArea:false},
+      ticks:{font:{size:9},maxTicksLimit:5,color:'#aaa'},
+      title:{display:true,text:'%',font:{size:9},color:'#aaa'},
+      min:0, max:100,
+    },
+  } : {
+    x:xScale,
+    y:{
+      grid:{color:gridColor()},
+      ticks:{font:{size:9},maxTicksLimit:5},
+      ...(isXY ? {title:{display:true,text:`${cfg.yLabel}${cfg.yUnit?` (${cfg.yUnit})`:''}`,font:{size:9}}} : {}),
+    },
+  };
+
+  S.charts[sid]=new Chart(ctx,{
+    type:'line', data:S.chartData[sid],
+    options:{
+      animation:false, responsive:true, maintainAspectRatio:false,
+      plugins:{
+        legend:{display:!isXY && s.axes.length>1,position:'top',labels:{boxWidth:8,boxHeight:8,padding:8,font:{size:10}}},
+        tooltip:{mode:isXY?'nearest':'index',intersect:false,callbacks:{label:c=>` ${c.dataset.label}: ${c.parsed.y?.toFixed(isTempHum?1:3)??'—'}`}}
+      },
+      scales: scalesOpt,
+      interaction:{mode:isXY?'nearest':'index',intersect:false}
+    }
+  });
+  S.charts[sid].$sid=sid;                 // ROI·분석 플러그인용 역참조
+  if(!canvas.$roiAttached){               // 핸들러 중복 부착 방지
+    attachRoiDrag(canvas, sid);
+    canvas.$roiAttached=true;
+  }
+
+  // 헤더 서브라벨 갱신
+  const sub=document.getElementById('csub-'+sid);
+  if(sub) sub.textContent = isXY ? `XY 플롯 · x=${cfg.xLabel} · y=${cfg.yLabel}` : `${s.lib} · ${s.unit||'—'}`;
+}
+
+// ═══════════════════════════════════════════════
+// XY 변수 지정 (기능 5) — ⚙ 팝오버
+// ═══════════════════════════════════════════════
+// 변수 옵션: 'time' 또는 'sid:axisIdx'
+function _xyVarOptions(includeTime){
+  const opts=[];
+  if(includeTime) opts.push({v:'time', label:'시간 (s)'});
+  SENSORS.filter(s=>S.active.has(s.id)).forEach(s=>{
+    s.axes.forEach((ax,i)=>opts.push({v:`${s.id}:${i}`, label:`${s.name}·${ax}`, unit:s.unit}));
+  });
+  return opts;
+}
+function _parseVar(v){
+  const [sid,axis]=v.split(':');
+  const s=SENSORS.find(x=>x.id===sid);
+  return {sid, axis:+axis, label:`${s.name}·${s.axes[+axis]}`, unit:s.unit||''};
+}
+
+function xyGearOpen(sid, ev){
+  ev.stopPropagation();
+  if(S.recording){ log('수집 중에는 XY 설정을 변경할 수 없습니다.','err'); return; }
+  const pop=document.getElementById('xy-pop');
+  const cfg=S.chartCfg[sid];
+  const cur={ x: cfg&&cfg.mode==='xy' ? `${cfg.x.sid}:${cfg.x.axis}` : 'time',
+              y: cfg&&cfg.mode==='xy' ? `${cfg.y.sid}:${cfg.y.axis}` : '' };
+  const xOpts=_xyVarOptions(true), yOpts=_xyVarOptions(false);
+  pop.innerHTML=`
+    <div class="xp-title">XY 변수 설정 — ${esc(SENSORS.find(s=>s.id===sid)?.name??sid)} 카드</div>
+    <label class="xp-lbl">x축</label>
+    <select id="xp-x" class="xp-sel">${xOpts.map(o=>`<option value="${o.v}"${o.v===cur.x?' selected':''}>${esc(o.label)}</option>`).join('')}</select>
+    <label class="xp-lbl">y축</label>
+    <select id="xp-y" class="xp-sel">${yOpts.map(o=>`<option value="${o.v}"${o.v===cur.y?' selected':''}>${esc(o.label)}</option>`).join('')}</select>
+    <div class="xp-btns">
+      <button class="btn primary" style="flex:1;" id="xp-apply">적용</button>
+      <button class="btn" style="flex:1;" id="xp-reset">시간축으로 초기화</button>
+    </div>
+    <div class="xs" style="margin-top:6px;">x=시간이면 기본 시간-변수 차트입니다. 변수-변수는 y 샘플마다 가장 최근 x값과 짝지어 그립니다.</div>`;
+  pop.classList.add('show');
+  // 앵커: ⚙ 버튼 기준 (팝오버, 모달 금지 — L-6)
+  const r=ev.currentTarget.getBoundingClientRect();
+  const pad=8;
+  pop.style.left='0px'; pop.style.top='0px';
+  const pr=pop.getBoundingClientRect();
+  let x=r.right-pr.width, y=r.bottom+6;
+  if(x<pad) x=pad;
+  if(y+pr.height>window.innerHeight-pad) y=r.top-pr.height-6;
+  pop.style.left=x+'px'; pop.style.top=Math.max(pad,y)+'px';
+
+  document.getElementById('xp-apply').onclick=()=>{ xyApply(sid); };
+  document.getElementById('xp-reset').onclick=()=>{ xyReset(sid); };
+}
+function hideXyPop(){ const p=document.getElementById('xy-pop'); if(p) p.classList.remove('show'); }
+document.addEventListener('click',(e)=>{
+  const p=document.getElementById('xy-pop');
+  if(p && p.classList.contains('show') && !p.contains(e.target)) hideXyPop();
+});
+
+function xyApply(sid){
+  const xv=document.getElementById('xp-x').value;
+  const yv=document.getElementById('xp-y').value;
+  hideXyPop();
+  if(xv==='time'){ xyReset(sid); return; }
+  if(!yv){ log('y축 변수를 선택하세요.','err'); return; }
+  const x=_parseVar(xv), y=_parseVar(yv);
+  S.chartCfg[sid]={mode:'xy', x, y, xLabel:x.label, yLabel:y.label, xUnit:x.unit, yUnit:y.unit};
+  S.xyRecorded[sid]=[];                 // 설정 변경 시 해당 차트 초기화
+  clearRoi();
+  createChart(SENSORS.find(s=>s.id===sid));
+  log(`XY 설정: x=${x.label}, y=${y.label}`,'sys');
+}
+function xyReset(sid){
+  hideXyPop();
+  if(!S.chartCfg[sid]) return;
+  delete S.chartCfg[sid];
+  delete S.xyRecorded[sid];
+  clearRoi();
+  createChart(SENSORS.find(s=>s.id===sid));
+  log('시간축 차트로 복귀','sys');
+}
+
+// 수집 시작 검증 (기능 5-6): XY 지정 변수의 센서 토글이 꺼져 있으면 시작 차단
+function validateXyBeforeStart(){
+  for(const cid of Object.keys(S.chartCfg)){
+    const c=S.chartCfg[cid];
+    if(!c || c.mode!=='xy' || !S.charts[cid]) continue;
+    for(const v of [c.x, c.y]){
+      if(!S.active.has(v.sid)){
+        const nm=SENSORS.find(s=>s.id===v.sid)?.name??v.sid;
+        log(`XY 차트가 '${nm}'를 사용합니다. 토글을 켜거나 XY 설정을 해제하세요.`,'err');
+        return false;
+      }
+    }
+  }
+  return true;
 }
 
 function colorVar(base,idx,total){
@@ -824,46 +1092,754 @@ function lighten(hex,amt){
 // 데이터 푸시
 // ═══════════════════════════════════════════════
 function pushData(sid, values){
-  const cd=S.chartData[sid]; if(!cd) return;
+  // 최신값 캐시 — XY 변수-변수 페어링 소스 (기능 5)
+  S.latest[sid]=values;
 
-  // 차트 업데이트 (chartLive 상태와 무관하게 연결 중엔 표시)
-  if(S.chartLive){
-    const lbl=new Date().toLocaleTimeString('ko-KR',{hour12:false});
-    cd.labels.push(lbl);
-    values.forEach((v,i)=>{if(cd.datasets[i]) cd.datasets[i].data.push(v);});
-    while(cd.labels.length>S.bufSize){cd.labels.shift();cd.datasets.forEach(d=>d.data.shift());}
+  // 현재값 숫자 배지 — 연결/데모 중 항상 갱신 (라이브 리드아웃, MBL 관례)
+  values.forEach((v,i)=>{
+    const el=document.getElementById(`lvn-${sid}-${i}`);
+    if(el) el.textContent=typeof v==='number'?v.toFixed(2):v;
+  });
+
+  // 차트·레코드는 수집(레코드) 중에만 진행 — 수집 시작 전 차트는 정지 상태 (MBL 관례)
+  if(!S.recording) return;
+
+  const now=new Date();
+  const elapsed=S.recActualStart ? +((now-S.recActualStart)/1000).toFixed(2) : 0;
+
+  // ① 시간 모드 차트 append — R0: {x: elapsed_s, y: value} 포인트, 롤링 버퍼 유지
+  const cd=S.chartData[sid];
+  const cfg=S.chartCfg[sid];
+  if(cd && (!cfg || cfg.mode!=='xy')){
+    values.forEach((v,i)=>{if(cd.datasets[i]) cd.datasets[i].data.push({x:elapsed, y:v});});
+    cd.datasets.forEach(d=>{while(d.data.length>S.bufSize) d.data.shift();});
     if(S.charts[sid]) S.charts[sid].update('none');
-    values.forEach((v,i)=>{
-      const el=document.getElementById(`lvn-${sid}-${i}`);
-      if(el) el.textContent=typeof v==='number'?v.toFixed(2):v;
-    });
   }
 
-  // 레코드 저장 (recording 상태일 때만)
-  if(S.recording){
-    const sensor=SENSORS.find(s=>s.id===sid);
-    const now=new Date();
-    const row={
-      timestamp: now.toISOString(),
-      elapsed_s: S.recActualStart ? +((now-S.recActualStart)/1000).toFixed(2) : 0,
-      sensor: sensor?.name??sid,
-    };
-    sensor?.axes.forEach((ax,i)=>row[ax]=values[i]??'');
-    S.recorded.push(row);
-    document.getElementById('rec-samples').textContent=S.recorded.length;
-    document.getElementById('rec-count').textContent=S.recorded.length;
-    updateExpRange();
-    setExportEnabled(true);
+  // ② XY 카드 페어링 (MBL 관례): y 샘플 도착 시 가장 최근 x 변수 값과 짝짓기
+  Object.keys(S.chartCfg).forEach(cid=>{
+    const c=S.chartCfg[cid];
+    if(!c || c.mode!=='xy' || !S.charts[cid]) return;
+    if(c.y.sid!==sid) return;
+    const y=values[c.y.axis];
+    const x=(c.x.sid===sid) ? values[c.x.axis] : (S.latest[c.x.sid]||[])[c.x.axis];
+    if(typeof x!=='number'||typeof y!=='number'||isNaN(x)||isNaN(y)) return;
+    const xcd=S.chartData[cid];
+    xcd.datasets[0].data.push({x, y});
+    while(xcd.datasets[0].data.length>S.bufSize) xcd.datasets[0].data.shift();
+    // 비롤링 XY 기록 — 내보내기·분석이 화면 버퍼 한계와 무관하게 정합 (E-2 전제)
+    (S.xyRecorded[cid]=S.xyRecorded[cid]||[]).push({t:elapsed, x, y});
+    S.charts[cid].update('none');
+  });
 
-    // 롱텀: 간격마다 자동 저장
-    if(S.longTermMin>0 && S.ltSegStart){
-      const elapsed=(Date.now()-S.ltSegStart)/1000/60;
-      if(elapsed>=S.longTermMin){
-        autoSaveLongterm();
-        S.ltSegStart=Date.now();
-      }
+  // 레코드 저장
+  const sensor=SENSORS.find(s=>s.id===sid);
+  const row={
+    timestamp: now.toISOString(),
+    elapsed_s: elapsed,
+    sensor: sensor?.name??sid,
+  };
+  sensor?.axes.forEach((ax,i)=>row[ax]=values[i]??'');
+  S.recorded.push(row);
+  document.getElementById('rec-samples').textContent=S.recorded.length;
+  document.getElementById('rec-count').textContent=S.recorded.length;
+  updateExpRange();
+  setExportEnabled(true);
+
+  // 롱텀: 간격마다 자동 저장
+  if(S.longTermMin>0 && S.ltSegStart){
+    const ltElapsed=(Date.now()-S.ltSegStart)/1000/60;
+    if(ltElapsed>=S.longTermMin){
+      autoSaveLongterm();
+      S.ltSegStart=Date.now();
     }
   }
+}
+
+// 모든 차트 비우기 (수집 시작·데이터 초기화 시)
+function resetCharts(){
+  Object.keys(S.chartData).forEach(id=>{
+    const cd=S.chartData[id];
+    cd.datasets.forEach(d=>d.data.length=0);
+    if(S.charts[id]) S.charts[id].update('none');
+  });
+}
+
+// ═══════════════════════════════════════════════
+// ROI 드래그 선택 → 구간 CSV (기능 4)
+// ═══════════════════════════════════════════════
+// 수집 정지 상태 + 데이터 존재 시, 차트 위 가로 드래그로 시간 구간 선택.
+// 선택은 [t1,t2] 시간 기준 — 드래그한 차트뿐 아니라 전 센서 행을 내보낸다 (MBL 관례).
+// 주의: 차트 버퍼는 롤링(S.bufSize)이라 화면에 보이는 구간만 선택 가능.
+S.roi={show:false,t1:0,t2:0,sid:null};
+S.roiHintShown=false;   // 1회성 힌트 (세션 단위)
+S.chartCfg={};          // {sid:{mode:'time'|'xy', ...}} — XY 변수 지정 (기능 5)
+S.xyRecorded={};        // {sid:[{t,x,y}...]} — XY 비롤링 기록 (기능 5)
+S.latest={};            // {sid:[v...]} — 각 센서 최신값 캐시 (XY 페어링 소스)
+let _roiDrag=null;      // {sid,x0} 드래그 진행 상태
+
+// ═══════════════════════════════════════════════
+// 분석 수학 (기능 6) — 외부 라이브러리 없이 직접 구현
+// ═══════════════════════════════════════════════
+function sig(v,d=4){                       // 유효숫자 d자리
+  if(!isFinite(v)) return String(v);
+  if(v===0) return '0';
+  return Number(v.toPrecision(d)).toString();
+}
+function gaussSolve(A,b){                  // 부분 피벗 가우스 소거
+  const n=b.length;
+  const M=A.map((row,i)=>[...row,b[i]]);
+  for(let c=0;c<n;c++){
+    let piv=c;
+    for(let r=c+1;r<n;r++) if(Math.abs(M[r][c])>Math.abs(M[piv][c])) piv=r;
+    if(Math.abs(M[piv][c])<1e-12) return null;
+    [M[c],M[piv]]=[M[piv],M[c]];
+    for(let r=0;r<n;r++){
+      if(r===c) continue;
+      const f=M[r][c]/M[c][c];
+      for(let k=c;k<=n;k++) M[r][k]-=f*M[c][k];
+    }
+  }
+  return M.map((row,i)=>row[n]/row[i]);
+}
+function fitLinear(pts){                   // y = a·x + b (최소제곱 닫힌해)
+  const n=pts.length; if(n<2) return null;
+  let sx=0,sy=0,sxx=0,sxy=0;
+  for(const p of pts){sx+=p.x;sy+=p.y;sxx+=p.x*p.x;sxy+=p.x*p.y;}
+  const d=n*sxx-sx*sx; if(Math.abs(d)<1e-12) return null;
+  const a=(n*sxy-sx*sy)/d, b=(sy-a*sx)/n;
+  return {params:{'기울기 a':a,'절편 b':b}, fn:x=>a*x+b, eq:`y = ${sig(a)}·x + ${sig(b)}`};
+}
+function fitPoly(pts,deg){                 // y = Σaᵢxⁱ (정규방정식)
+  if(pts.length<deg+1) return null;
+  const n=deg+1;
+  const pow=new Array(2*deg+1).fill(0), B=new Array(n).fill(0);
+  for(const p of pts){
+    let xp=1; for(let k=0;k<=2*deg;k++){pow[k]+=xp; xp*=p.x;}
+    let xq=1; for(let k=0;k<=deg;k++){B[k]+=xq*p.y; xq*=p.x;}
+  }
+  const A=Array.from({length:n},(_,i)=>Array.from({length:n},(_,j)=>pow[i+j]));
+  const c=gaussSolve(A,B); if(!c) return null;
+  const params={}; c.forEach((v,i)=>params['a'+i]=v);
+  return {params, fn:x=>c.reduce((s,ci,i)=>s+ci*Math.pow(x,i),0),
+          eq:'y = '+c.map((ci,i)=>`${sig(ci)}${i?('·x'+(i>1?'^'+i:'')):''}`).reverse().join(' + ')};
+}
+// Levenberg-Marquardt (수치 야코비안) — 지수/거듭제곱/사인 공용
+function lmFit(pts, model, p0, iters=200){
+  let p=p0.slice(), lambda=1e-3;
+  const m=p.length;
+  const res=pp=>pts.map(pt=>pt.y-model(pt.x,pp));
+  const sse=rr=>rr.reduce((s,r)=>s+r*r,0);
+  let r=res(p), cost=sse(r);
+  for(let it=0;it<iters;it++){
+    const J=pts.map(pt=>p.map((pj,j)=>{
+      const h=Math.max(1e-7,Math.abs(pj)*1e-6);
+      const p2=p.slice(); p2[j]+=h;
+      return (model(pt.x,p2)-model(pt.x,p))/h;
+    }));
+    const A=Array.from({length:m},()=>new Array(m).fill(0));
+    const g=new Array(m).fill(0);
+    for(let i=0;i<pts.length;i++)
+      for(let j=0;j<m;j++){
+        g[j]+=J[i][j]*r[i];
+        for(let k=0;k<m;k++) A[j][k]+=J[i][j]*J[i][k];
+      }
+    const Ad=A.map((row,j)=>row.map((v,k)=>j===k?v*(1+lambda):v));
+    const dp=gaussSolve(Ad,g);
+    if(!dp) break;
+    const p2=p.map((v,j)=>v+dp[j]);
+    const r2=res(p2), c2=sse(r2);
+    if(c2<cost){
+      p=p2; r=r2;
+      const done=Math.abs(cost-c2)<1e-12*(1+cost);
+      cost=c2; lambda=Math.max(1e-9,lambda*0.5);
+      if(done) break;
+    } else { lambda*=3; if(lambda>1e9) break; }
+  }
+  return {p, cost};
+}
+function fitExp(pts){                      // y = A·e^(k·x) — ln 선형화 초기값 → GN/LM 정련
+  const pos=pts.filter(p=>p.y>0); if(pos.length<3) return null;
+  const lin=fitLinear(pos.map(p=>({x:p.x,y:Math.log(p.y)}))); if(!lin) return null;
+  const A0=Math.exp(lin.params['절편 b']), k0=lin.params['기울기 a'];
+  const r=lmFit(pts,(x,p)=>p[0]*Math.exp(p[1]*x),[A0,k0]);
+  const [A,k]=r.p;
+  return {params:{A,k}, fn:x=>A*Math.exp(k*x), eq:`y = ${sig(A)}·e^(${sig(k)}·x)`};
+}
+function fitPower(pts){                    // y = A·x^n — log-log 선형화 → LM 정련
+  const pp=pts.filter(p=>p.x>0&&p.y>0); if(pp.length<3) return null;
+  const lin=fitLinear(pp.map(p=>({x:Math.log(p.x),y:Math.log(p.y)}))); if(!lin) return null;
+  const A0=Math.exp(lin.params['절편 b']), n0=lin.params['기울기 a'];
+  const r=lmFit(pp,(x,p)=>p[0]*Math.pow(x,p[1]),[A0,n0]);
+  const [A,n]=r.p;
+  return {params:{A,n}, fn:x=>A*Math.pow(x,n), eq:`y = ${sig(A)}·x^${sig(n)}`};
+}
+function fitSine(pts){                     // y = A·sin(ω·x+φ)+C — 초기값 추정 → LM
+  if(pts.length<6) return null;
+  const ys=pts.map(p=>p.y);
+  const C0=ys.reduce((a,b)=>a+b,0)/ys.length;
+  const A0=Math.sqrt(2*ys.reduce((s,y)=>s+(y-C0)**2,0)/ys.length)||1;
+  let cross=0;
+  for(let i=1;i<ys.length;i++) if((ys[i-1]-C0)*(ys[i]-C0)<0) cross++;
+  const span=pts[pts.length-1].x-pts[0].x;
+  const w0=cross>0 ? Math.PI*cross/Math.max(span,1e-6) : 2*Math.PI/Math.max(span,1e-6);
+  const r=lmFit(pts,(x,p)=>p[0]*Math.sin(p[1]*x+p[2])+p[3],[A0,w0,0,C0],400);
+  const [A,w,ph,C]=r.p;
+  return {params:{A,'ω':w,'φ':ph,C}, fn:x=>A*Math.sin(w*x+ph)+C,
+          eq:`y = ${sig(A)}·sin(${sig(w)}·x + ${sig(ph)}) + ${sig(C)}`};
+}
+function fitStats(pts,fn){                 // R², 잔차 RMS
+  const n=pts.length;
+  const mean=pts.reduce((s,p)=>s+p.y,0)/n;
+  let ssres=0, sstot=0;
+  for(const p of pts){ const e=p.y-fn(p.x); ssres+=e*e; sstot+=(p.y-mean)**2; }
+  return {r2: sstot>0?1-ssres/sstot:1, rms: Math.sqrt(ssres/n)};
+}
+function trapz(pts){                       // 사다리꼴 적분 ∫y dx (x 오름차순)
+  let s=0;
+  for(let i=1;i<pts.length;i++) s+=(pts[i].x-pts[i-1].x)*(pts[i].y+pts[i-1].y)/2;
+  return s;
+}
+// 국소 1차 회귀 기울기 (접선용, ±k점)
+function localSlope(pts, idx, k=3){
+  const a=Math.max(0,idx-k), b=Math.min(pts.length-1,idx+k);
+  const seg=pts.slice(a,b+1);
+  const lin=fitLinear(seg);
+  return lin ? lin.params['기울기 a'] : 0;
+}
+
+// ── 분석 대상 데이터 (E-3: 내보내기와 동일 스코프 — 그 차트의 변수·ROI) ──
+function analysisSeries(sid){
+  const cfg=S.chartCfg[sid];
+  if(cfg&&cfg.mode==='xy') return [{idx:0,label:cfg.yLabel,unit:cfg.yUnit||'',xUnit:cfg.xUnit||''}];
+  const s=SENSORS.find(x=>x.id===sid);
+  return s.axes.map((ax,i)=>({idx:i,label:ax,unit:s.unit||'',xUnit:'s'}));
+}
+function analysisPoints(sid, seriesIdx, useRoi){
+  const cfg=S.chartCfg[sid];
+  const t1=useRoi?S.roi.t1:null, t2=useRoi?S.roi.t2:null;
+  if(cfg&&cfg.mode==='xy'){
+    let rows=S.xyRecorded[sid]||[];
+    if(useRoi) rows=rows.filter(r=>r.x>=t1&&r.x<=t2);
+    return rows.map(r=>({x:r.x,y:r.y})).sort((a,b)=>a.x-b.x);
+  }
+  const s=SENSORS.find(x=>x.id===sid);
+  let rows=S.recorded.filter(r=>r.sensor===s.name);
+  if(useRoi) rows=rows.filter(r=>r.elapsed_s>=t1&&r.elapsed_s<=t2);
+  const ax=s.axes[seriesIdx];
+  return rows.map(r=>({x:r.elapsed_s,y:+r[ax]})).filter(p=>isFinite(p.y));
+}
+
+// ── 분석 결과 행 ──
+function anaResult(sid, html, plain){
+  const det=document.getElementById('ar-'+sid);
+  const body=document.getElementById('arb-'+sid);
+  if(!det||!body) return;
+  const row=document.createElement('div');
+  row.className='ar-row';
+  row.innerHTML=html;
+  row.dataset.plain=plain||'';
+  body.appendChild(row);
+  det.open=true;                                     // 결과 생기면 자동 펼침
+}
+function anaCopy(sid){
+  const body=document.getElementById('arb-'+sid);
+  const txt=[...body.querySelectorAll('.ar-row')].map(r=>r.dataset.plain||r.textContent).join('\n');
+  if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(()=>log('분석 결과 복사됨','sys'));
+}
+function anaClearChart(sid){
+  const body=document.getElementById('arb-'+sid); if(body) body.innerHTML='';
+  const det=document.getElementById('ar-'+sid); if(det) det.open=false;
+  const ch=S.charts[sid];
+  if(ch){ delete ch.$tan; delete ch.$integral; delete ch.$fits; ch.update('none'); }
+}
+
+// ── 6-A 크기 최적화 ──
+function anaFitView(sid, btn){
+  const ch=S.charts[sid]; if(!ch) return;
+  if(S.recording){ log('수집 중에는 사용할 수 없습니다.','err'); return; }
+  if(ch.$fitview){                                  // 재클릭 → 자동 스케일 복귀
+    delete ch.options.scales.x.min; delete ch.options.scales.x.max;
+    if(ch.options.scales.y){ delete ch.options.scales.y.min; delete ch.options.scales.y.max; }
+    ch.$fitview=false; btn.classList.remove('on'); ch.update(); return;
+  }
+  const cd=S.chartData[sid];
+  let xmn=Infinity,xmx=-Infinity,ymn=Infinity,ymx=-Infinity,any=false;
+  cd.datasets.forEach(d=>d.data.forEach(p=>{any=true;
+    if(p.x<xmn)xmn=p.x; if(p.x>xmx)xmx=p.x; if(p.y<ymn)ymn=p.y; if(p.y>ymx)ymx=p.y;}));
+  if(!any){ log('데이터가 없습니다.','err'); return; }
+  const px=(xmx-xmn)*0.05||0.5, py=(ymx-ymn)*0.05||0.5;   // ±5% 패딩
+  ch.options.scales.x.min=xmn-px; ch.options.scales.x.max=xmx+px;
+  if(ch.options.scales.y){ ch.options.scales.y.min=ymn-py; ch.options.scales.y.max=ymx+py; }
+  ch.$fitview=true; btn.classList.add('on'); ch.update();
+}
+
+// ── 6-B 접선(기울기) ──
+S.tangentSid=null;
+function anaTangentToggle(sid, btn){
+  if(S.recording){ log('수집 중에는 사용할 수 없습니다.','err'); return; }
+  if(!_chartXRange(sid)){ log('데이터가 없습니다.','err'); return; }
+  if(S.tangentSid===sid){
+    S.tangentSid=null; btn.classList.remove('on');
+    const ch=S.charts[sid]; if(ch){ delete ch.$tan; ch.update('none'); }
+    return;
+  }
+  // 다른 차트에서 켜져 있으면 끔
+  if(S.tangentSid && S.charts[S.tangentSid]){
+    delete S.charts[S.tangentSid].$tan; S.charts[S.tangentSid].update('none');
+    const pb=document.querySelector(`#tb-${S.tangentSid} [data-tool="tangent"]`); if(pb) pb.classList.remove('on');
+  }
+  S.tangentSid=sid; btn.classList.add('on');
+  log('접선 도구: 차트 위에서 포인터를 움직이세요.','sys');
+}
+function tangentMove(sid, px, py){
+  if(S.tangentSid!==sid) return;
+  const ch=S.charts[sid]; if(!ch) return;
+  const cd=S.chartData[sid];
+  // 커서에 가장 가까운 데이터 점 (전 시리즈, 픽셀 거리)
+  let best=null;
+  cd.datasets.forEach((d,di)=>{
+    d.data.forEach((p,i)=>{
+      const dx=ch.scales.x.getPixelForValue(p.x)-px;
+      const yScale=ch.scales[d.yAxisID||'y']||ch.scales.y;
+      const dy=(yScale?yScale.getPixelForValue(p.y):0)-py;
+      const dist=dx*dx+dy*dy;
+      if(!best||dist<best.dist) best={dist,di,i,p};
+    });
+  });
+  if(!best) return;
+  const series=cd.datasets[best.di].data;
+  const slope=localSlope(series, best.i, 3);        // ±3점 국소 1차 회귀
+  const su=analysisSeries(sid)[best.di]||analysisSeries(sid)[0];
+  ch.$tan={x:best.p.x, y:best.p.y, slope, di:best.di,
+           label:`(${sig(best.p.x)}, ${sig(best.p.y)})  dy/dx = ${sig(slope)} ${su.unit&&su.xUnit?`${su.unit}/${su.xUnit}`:''}`};
+  ch.update('none');
+}
+
+// ── 6-C 면적(적분) — ROI 연동 ──
+function anaIntegral(sid){
+  if(S.recording){ log('수집 중에는 사용할 수 없습니다.','err'); return; }
+  if(!S.roi.show){ log('먼저 구간을 드래그하세요.','err'); return; }
+  const ch=S.charts[sid]; if(!ch) return;
+  const results=[];
+  analysisSeries(sid).forEach(su=>{
+    const pts=analysisPoints(sid, su.idx, true);
+    if(pts.length<2) return;
+    const v=trapz(pts);
+    const unit=su.unit&&su.xUnit?`${su.unit}·${su.xUnit}`:'';
+    results.push({label:su.label, val:v, unit, di:su.idx});
+    const plain=`∫${su.label} = ${sig(v)}${unit?` ${unit}`:''}  [${S.roi.t1.toFixed(2)} ~ ${S.roi.t2.toFixed(2)}]`;
+    anaResult(sid, `<b>∫ ${esc(su.label)}</b> = <span class="ar-val">${sig(v)}</span>${unit?` <span class="ar-unit">${esc(unit)}</span>`:''} <span class="ar-rng">(${S.roi.t1.toFixed(2)} ~ ${S.roi.t2.toFixed(2)})</span>`, plain);
+    log(plain,'sys');
+  });
+  if(!results.length){ log('선택 구간에 데이터가 없습니다.','err'); return; }
+  ch.$integral={t1:S.roi.t1, t2:S.roi.t2, series:results.map(r=>r.di)};
+  ch.update('none');
+}
+
+// ── 6-D 피팅 — ROI 연동, 모델 선택 대화상자 ──
+const FIT_MODELS=[
+  {id:'linear', name:'선형 y=a·x+b',          f:pts=>fitLinear(pts)},
+  {id:'poly2',  name:'2차 다항 y=a₂x²+a₁x+a₀', f:pts=>fitPoly(pts,2)},
+  {id:'poly3',  name:'3차 다항',               f:pts=>fitPoly(pts,3)},
+  {id:'exp',    name:'지수 y=A·e^(k·x)',       f:pts=>fitExp(pts)},
+  {id:'power',  name:'거듭제곱 y=A·x^n',       f:pts=>fitPower(pts)},
+  {id:'sine',   name:'사인 y=A·sin(ω·x+φ)+C',  f:pts=>fitSine(pts)},
+];
+function anaFitOpen(sid){
+  if(S.recording){ log('수집 중에는 사용할 수 없습니다.','err'); return; }
+  if(!S.roi.show){ log('먼저 구간을 드래그하세요.','err'); return; }
+  const pop=document.getElementById('xy-pop');    // 팝오버 컨테이너 재사용
+  const series=analysisSeries(sid);
+  pop.innerHTML=`
+    <div class="xp-title">구간 피팅 — ${S.roi.t1.toFixed(1)} ~ ${S.roi.t2.toFixed(1)}</div>
+    <label class="xp-lbl">모델</label>
+    <select id="fit-model" class="xp-sel">${FIT_MODELS.map(m=>`<option value="${m.id}">${esc(m.name)}</option>`).join('')}</select>
+    ${series.length>1?`<label class="xp-lbl">시리즈</label>
+    <select id="fit-series" class="xp-sel">${series.map(su=>`<option value="${su.idx}">${esc(su.label)}</option>`).join('')}</select>`:''}
+    <div class="xp-btns"><button class="btn primary" style="flex:1;" id="fit-run">피팅 실행</button></div>`;
+  pop.classList.add('show');
+  const card=document.getElementById('cc-'+sid);
+  const r=card?card.getBoundingClientRect():{left:innerWidth/2,top:innerHeight/2,width:0};
+  pop.style.left=Math.max(8,Math.min(innerWidth-260, r.left+r.width/2-120))+'px';
+  pop.style.top=Math.max(8,r.top+40)+'px';
+  document.getElementById('fit-run').onclick=()=>{
+    const mid=document.getElementById('fit-model').value;
+    const sIdx=series.length>1?+document.getElementById('fit-series').value:series[0].idx;
+    hideXyPop();
+    anaFitRun(sid, mid, sIdx);
+  };
+}
+function anaFitRun(sid, modelId, seriesIdx){
+  const model=FIT_MODELS.find(m=>m.id===modelId);
+  const su=analysisSeries(sid).find(s=>s.idx===seriesIdx);
+  const pts=analysisPoints(sid, seriesIdx, true);
+  if(pts.length<3){ log('선택 구간의 데이터가 부족합니다.','err'); return; }
+  const fit=model.f(pts);
+  if(!fit){ log(`피팅 실패: ${model.name} — 데이터가 모델 조건에 맞지 않습니다.`,'err'); return; }
+  const st=fitStats(pts, fit.fn);
+  const ch=S.charts[sid]; if(!ch) return;
+  (ch.$fits=ch.$fits||[]).push({fn:fit.fn, t1:S.roi.t1, t2:S.roi.t2});
+  ch.update('none');
+  const ptxt=Object.entries(fit.params).map(([k,v])=>`${k}=${sig(v)}`).join(', ');
+  const plain=`피팅[${model.name}] ${su.label}: ${fit.eq} | ${ptxt} | R²=${sig(st.r2)} RMS=${sig(st.rms)}`;
+  anaResult(sid,
+    `<b>ƒ ${esc(su.label)}</b> <span class="ar-eq">${esc(fit.eq)}</span><br>`+
+    `<span class="ar-unit">${esc(ptxt)}</span> · <b>R²=${sig(st.r2)}</b> · RMS=${sig(st.rms)}`, plain);
+  log(plain,'sys');
+}
+
+// ── 분석 오버레이 플러그인 (적분 채움·피팅 곡선·접선) ──
+const anaPlugin={
+  id:'anaOverlay',
+  afterDatasetsDraw(chart){
+    const ctx=chart.ctx, area=chart.chartArea, xs=chart.scales.x;
+    const ys=chart.scales.y||chart.scales.yTemp;
+    if(!xs||!ys) return;
+    // 적분 채움
+    if(chart.$integral){
+      const {t1,t2,series}=chart.$integral;
+      const cd=S.chartData[chart.$sid];
+      ctx.save();
+      series.forEach(di=>{
+        const d=cd.datasets[di]; if(!d) return;
+        const seg=d.data.filter(p=>p.x>=t1&&p.x<=t2);
+        if(seg.length<2) return;
+        const y0=Math.max(area.top, Math.min(area.bottom, ys.getPixelForValue(0)));
+        ctx.beginPath();
+        ctx.moveTo(xs.getPixelForValue(seg[0].x), y0);
+        seg.forEach(p=>ctx.lineTo(xs.getPixelForValue(p.x), ys.getPixelForValue(p.y)));
+        ctx.lineTo(xs.getPixelForValue(seg[seg.length-1].x), y0);
+        ctx.closePath();
+        ctx.globalAlpha=0.22;
+        ctx.fillStyle=cssVar('--teal','#2dd4bf');
+        ctx.fill();
+        ctx.globalAlpha=1;
+      });
+      ctx.restore();
+    }
+    // 피팅 곡선 (점선, 강조색)
+    if(chart.$fits&&chart.$fits.length){
+      ctx.save();
+      ctx.setLineDash([5,4]);
+      ctx.lineWidth=1.8;
+      ctx.strokeStyle=cssVar('--amber','#f5a623');
+      chart.$fits.forEach(f=>{
+        ctx.beginPath();
+        const N=100;
+        for(let i=0;i<=N;i++){
+          const x=f.t1+(f.t2-f.t1)*i/N;
+          const yy=f.fn(x);
+          if(!isFinite(yy)) continue;
+          const pxx=xs.getPixelForValue(x), pyy=ys.getPixelForValue(yy);
+          if(i===0) ctx.moveTo(pxx,pyy); else ctx.lineTo(pxx,pyy);
+        }
+        ctx.stroke();
+      });
+      ctx.restore();
+    }
+    // 접선
+    if(chart.$tan){
+      const t=chart.$tan;
+      const cx=xs.getPixelForValue(t.x), cy=ys.getPixelForValue(t.y);
+      const spanX=(xs.max-xs.min)*0.12;
+      const x1=t.x-spanX, x2=t.x+spanX;
+      const y1=t.y-t.slope*spanX, y2=t.y+t.slope*spanX;
+      ctx.save();
+      ctx.strokeStyle=cssVar('--red','#ff4f6a');
+      ctx.lineWidth=1.5;
+      ctx.beginPath();
+      ctx.moveTo(xs.getPixelForValue(x1), ys.getPixelForValue(y1));
+      ctx.lineTo(xs.getPixelForValue(x2), ys.getPixelForValue(y2));
+      ctx.stroke();
+      // 크로스헤어 점
+      ctx.fillStyle=ctx.strokeStyle;
+      ctx.beginPath(); ctx.arc(cx,cy,3,0,Math.PI*2); ctx.fill();
+      // 라벨 칩 — 경계 밖이면 반대편으로 플립
+      const label=t.label;
+      ctx.font='10px "JetBrains Mono", monospace';
+      const w=ctx.measureText(label).width+12;
+      let lx=cx+10, ly=cy-24;
+      if(lx+w>area.right) lx=cx-w-10;
+      if(ly<area.top) ly=cy+10;
+      ctx.globalAlpha=0.94;
+      ctx.fillStyle=cssVar('--bg4','#222736');       // 라벨 칩: --panel2 계열 (L-4)
+      ctx.strokeStyle=cssVar('--border2','rgba(255,255,255,0.13)');
+      ctx.beginPath(); ctx.roundRect(lx,ly,w,17,4); ctx.fill(); ctx.stroke();
+      ctx.globalAlpha=1;
+      ctx.fillStyle=cssVar('--text','#e8eaf0');
+      ctx.fillText(label,lx+6,ly+12);
+      ctx.restore();
+    }
+  }
+};
+Chart.register(anaPlugin);
+
+// 모든 분석 오버레이·상태 해제 (기능 3 초기화·수집 재시작 시)
+function clearAnalysis(){
+  S.tangentSid=null;
+  Object.keys(S.charts).forEach(sid=>{
+    const ch=S.charts[sid];
+    delete ch.$tan; delete ch.$integral; delete ch.$fits;
+    if(ch.$fitview){
+      delete ch.options.scales.x.min; delete ch.options.scales.x.max;
+      if(ch.options.scales.y){ delete ch.options.scales.y.min; delete ch.options.scales.y.max; }
+      ch.$fitview=false;
+    }
+    ch.update('none');
+    const body=document.getElementById('arb-'+sid); if(body) body.innerHTML='';
+    const det=document.getElementById('ar-'+sid); if(det) det.open=false;
+    const tb=document.getElementById('tb-'+sid);
+    if(tb) tb.querySelectorAll('.on').forEach(b=>b.classList.remove('on'));
+  });
+}
+
+// CSS 변수 → 캔버스 색 (L-8: 하드코딩 금지 — 테마 토큰 사용)
+function cssVar(n, fallback){
+  try{ const v=getComputedStyle(document.body).getPropertyValue(n).trim(); return v||fallback; }
+  catch(e){ return fallback; }
+}
+
+// 차트의 x 데이터 범위 [min,max] — XY 모드는 x가 비단조라 전체 스캔
+function _chartXRange(sid){
+  const cd=S.chartData[sid];
+  const d=cd&&cd.datasets[0]&&cd.datasets[0].data;
+  if(!d||!d.length) return null;
+  let mn=d[0].x, mx=d[0].x;
+  for(const p of d){ if(p.x<mn)mn=p.x; if(p.x>mx)mx=p.x; }
+  return [mn, mx];
+}
+
+// Chart.js 커스텀 플러그인 — 선택 구간 반투명 하이라이트 (R0: 숫자축이라 시간→픽셀 직접 변환)
+const roiPlugin={
+  id:'roiHighlight',
+  afterDatasetsDraw(chart){
+    if(!S.roi.show) return;
+    const sid=chart.$sid;
+    const range=_chartXRange(sid); if(!range) return;
+    if(S.roi.t2<range[0]||S.roi.t1>range[1]) return;
+    const xs=chart.scales.x, area=chart.chartArea, ctx=chart.ctx;
+    const x1=Math.max(area.left, xs.getPixelForValue(S.roi.t1));
+    const x2=Math.min(area.right, xs.getPixelForValue(S.roi.t2));
+    if(x2<=x1) return;
+    ctx.save();
+    const teal=cssVar('--teal','#2dd4bf');
+    ctx.globalAlpha=0.12;                       // --teal 12% (L-8)
+    ctx.fillStyle=teal;
+    ctx.fillRect(x1, area.top, x2-x1, area.bottom-area.top);
+    ctx.globalAlpha=0.55;
+    ctx.strokeStyle=teal;
+    ctx.lineWidth=1;
+    ctx.beginPath();
+    ctx.moveTo(x1,area.top); ctx.lineTo(x1,area.bottom);
+    ctx.moveTo(x2,area.top); ctx.lineTo(x2,area.bottom);
+    ctx.stroke();
+    ctx.restore();
+  }
+};
+Chart.register(roiPlugin);
+
+// 픽셀 x → 해당 차트의 x값(시간 모드: 초) — 데이터 범위로 클램프
+function _pxToElapsed(chart, px){
+  const range=_chartXRange(chart.$sid);
+  if(!range) return null;
+  const t=chart.scales.x.getValueForPixel(px);
+  return Math.max(range[0], Math.min(range[1], t));
+}
+
+// 선택 구간이 이 차트의 px 좌표를 포함하는지
+function _pxInRoi(chart, px){
+  if(!S.roi.show) return false;
+  const xs=chart.scales.x;
+  const x1=xs.getPixelForValue(S.roi.t1), x2=xs.getPixelForValue(S.roi.t2);
+  return px>=Math.min(x1,x2) && px<=Math.max(x1,x2);
+}
+
+// 각 차트 캔버스에 드래그·우클릭·롱프레스 핸들러 부착 (rebuildCharts에서 호출)
+function attachRoiDrag(canvas, sid){
+  let longPressTimer=null, longPressFired=false;
+
+  canvas.addEventListener('pointerdown',(e)=>{
+    if(S.recording) return;                      // 수집 중에는 선택 불가
+    if(!_chartXRange(sid)) return;               // 데이터 없으면 무시
+    hideCtxMenu();
+    _roiDrag={sid, x0:e.offsetX, moved:false};
+    longPressFired=false;
+    canvas.setPointerCapture(e.pointerId);
+    // 터치: 선택 영역 위 롱프레스(≈600ms) → 컨텍스트 메뉴
+    if(e.pointerType==='touch' && S.roi.show && _pxInRoi(S.charts[sid], e.offsetX)){
+      longPressTimer=setTimeout(()=>{
+        longPressFired=true; _roiDrag=null;
+        showCtxMenu(sid, e.clientX, e.clientY);
+      },600);
+    }
+  });
+  canvas.addEventListener('pointermove',(e)=>{
+    if(!_roiDrag||_roiDrag.sid!==sid) return;
+    if(Math.abs(e.offsetX-_roiDrag.x0)>4){ _roiDrag.moved=true; clearTimeout(longPressTimer); }
+    if(!_roiDrag.moved) return;
+    const chart=S.charts[sid];
+    const a=_pxToElapsed(chart,Math.min(_roiDrag.x0,e.offsetX));
+    const b=_pxToElapsed(chart,Math.max(_roiDrag.x0,e.offsetX));
+    if(a==null||b==null) return;
+    S.roi={show:true,t1:a,t2:b,sid};
+    _redrawAllCharts();
+  });
+  const finish=(e)=>{
+    clearTimeout(longPressTimer);
+    if(longPressFired) return;                   // 롱프레스 메뉴가 이미 뜸
+    if(!_roiDrag||_roiDrag.sid!==sid) return;
+    const moved=_roiDrag.moved; _roiDrag=null;
+    if(!moved){ clearRoi(); return; }            // 드래그 없는 클릭 → 선택 해제
+    showRoiHint(canvas);                         // 1회성 힌트: 우클릭 안내
+  };
+  canvas.addEventListener('pointerup',finish);
+  canvas.addEventListener('pointercancel',finish);
+
+  // 접선 도구 (기능 6-B): 활성 시 포인터 추적
+  canvas.addEventListener('pointermove',(e)=>{ if(!_roiDrag) tangentMove(sid, e.offsetX, e.offsetY); });
+
+  // 우클릭: 선택 영역 안 → ROI 메뉴 / 선택 없음 → 전체 구간 메뉴 / 선택 밖 → 브라우저 기본
+  canvas.addEventListener('contextmenu',(e)=>{
+    if(S.recording) return;
+    if(S.roi.show){
+      if(_pxInRoi(S.charts[sid], e.offsetX)){
+        e.preventDefault();
+        showCtxMenu(sid, e.clientX, e.clientY);
+      }
+      return;  // 선택 밖 → 기본 메뉴
+    }
+    if(_chartXRange(sid)){                       // 선택 없음 + 데이터 있음 → 전체 구간 메뉴 (E-2)
+      e.preventDefault();
+      showCtxMenu(sid, e.clientX, e.clientY, /*fullRange*/true);
+    }
+  });
+}
+
+// 1회성 힌트 툴팁
+function showRoiHint(canvas){
+  if(S.roiHintShown) return;
+  S.roiHintShown=true;
+  const h=document.getElementById('roi-hint');
+  const r=canvas.getBoundingClientRect();
+  h.style.left=(r.left+r.width/2)+'px';
+  h.style.top=(r.top+10)+'px';
+  h.classList.add('show');
+  setTimeout(()=>h.classList.remove('show'), 3000);
+}
+
+function _redrawAllCharts(){
+  Object.values(S.charts).forEach(c=>c.update('none'));
+}
+
+// ── 차트 스코프 데이터 (E-2): 그 차트에 할당된 변수만, 토글 상태 무관 ──
+// 시간 모드: 해당 센서의 축 컬럼 (timestamp, elapsed_s, 축들)
+function chartScopeRows(sid, t1, t2){
+  const cfg=S.chartCfg[sid];
+  if(cfg && cfg.mode==='xy'){
+    // XY 모드: S.xyRecorded 기반, ROI 필터는 x변수 값 ∈ [t1,t2]
+    let rows=(S.xyRecorded[sid]||[]);
+    if(t1!=null) rows=rows.filter(r=>r.x>=t1 && r.x<=t2);
+    return rows.map(r=>({elapsed_s:r.t, [cfg.xLabel]:r.x, [cfg.yLabel]:r.y}));
+  }
+  const sensor=SENSORS.find(s=>s.id===sid);
+  let rows=S.recorded.filter(r=>r.sensor===(sensor?.name??sid));
+  if(t1!=null) rows=rows.filter(r=>r.elapsed_s>=t1 && r.elapsed_s<=t2);
+  return rows.map(r=>{
+    const o={timestamp:r.timestamp, elapsed_s:r.elapsed_s};
+    sensor?.axes.forEach(ax=>o[ax]=r[ax]);
+    return o;
+  });
+}
+
+function _roiRows(){  // 우클릭 메뉴 요약용 — ROI를 잡은 차트 스코프의 행 수
+  const sid=S.roi.sid;
+  return sid ? chartScopeRows(sid, S.roi.t1, S.roi.t2) : [];
+}
+
+// 차트 컨텍스트 내보내기 (E-2)
+function exportChartScope(sid, useRoi, xlsx){
+  const cfg=S.chartCfg[sid];
+  const isXY=cfg && cfg.mode==='xy';
+  const t1=useRoi?S.roi.t1:null, t2=useRoi?S.roi.t2:null;
+  const rows=chartScopeRows(sid, t1, t2);
+  if(!rows.length){log('내보낼 데이터가 없습니다.','err');return;}
+  const extra={
+    export_scope:'chart',
+    chart_vars: isXY ? `x=${cfg.xLabel}, y=${cfg.yLabel}` : (SENSORS.find(s=>s.id===sid)?.name??sid),
+  };
+  if(useRoi){ extra.roi_start_s=S.roi.t1; extra.roi_end_s=S.roi.t2; }
+  const base=isXY ? `${cfg.xLabel}-${cfg.yLabel}` : sid;
+  const name=`${base}${useRoi?'_roi':''}_${ts()}`.replace(/[^\w가-힣.\-]/g,'_');
+  exportData(rows, name, xlsx, extra);
+  log(`${xlsx?'XLSX':'CSV'} 저장(차트 스코프): ${name} (${rows.length}행)`,'sys');
+}
+
+// ── 컨텍스트 메뉴 ────────────────────────────────────
+function hideCtxMenu(){
+  const m=document.getElementById('ctx-menu');
+  if(m) m.classList.remove('show');
+}
+function showCtxMenu(sid, cx, cy, fullRange=false){
+  const m=document.getElementById('ctx-menu');
+  const useRoi=!fullRange && S.roi.show;
+  let head, items=[];
+  if(useRoi){
+    const n=_roiRows().length;
+    head=`${S.roi.t1.toFixed(1)} s ~ ${S.roi.t2.toFixed(1)} s · ${n}개 샘플`;
+    items=[
+      {t:'선택 구간 CSV 내보내기',  f:()=>exportChartScope(sid,true,false)},
+      {t:'선택 구간 XLSX 내보내기', f:()=>exportChartScope(sid,true,true)},
+      {t:'면적(적분) 계산',         f:()=>anaIntegral(sid)},
+      {t:'구간 피팅',               f:()=>anaFitOpen(sid)},
+      {t:'선택 해제',               f:()=>clearRoi()},
+    ];
+  } else {
+    head='전체 구간 (이 차트)';
+    items=[
+      {t:'전체 구간 CSV 내보내기(이 차트)',  f:()=>exportChartScope(sid,false,false)},
+      {t:'전체 구간 XLSX 내보내기(이 차트)', f:()=>exportChartScope(sid,false,true)},
+    ];
+  }
+  m.innerHTML=`<div class="cm-head">${esc(head)}</div>`+
+    items.map((it,i)=>`<div class="cm-item" data-i="${i}">${esc(it.t)}</div>`).join('');
+  m.querySelectorAll('.cm-item').forEach(el=>{
+    el.onclick=()=>{ hideCtxMenu(); items[+el.dataset.i].f(); };
+  });
+  m.classList.add('show');
+  // 화면 가장자리 보정
+  const pad=8;
+  m.style.left='0px'; m.style.top='0px';
+  const rect=m.getBoundingClientRect();
+  let x=cx, y=cy;
+  if(x+rect.width>window.innerWidth-pad)  x=window.innerWidth-rect.width-pad;
+  if(y+rect.height>window.innerHeight-pad) y=window.innerHeight-rect.height-pad;
+  m.style.left=Math.max(pad,x)+'px'; m.style.top=Math.max(pad,y)+'px';
+}
+document.addEventListener('click',(e)=>{
+  const m=document.getElementById('ctx-menu');
+  if(m && m.classList.contains('show') && !m.contains(e.target)) hideCtxMenu();
+});
+
+function clearRoi(){
+  hideCtxMenu();
+  if(!S.roi||!S.roi.show){ if(S.roi) S.roi.show=false; return; }
+  S.roi.show=false;
+  _redrawAllCharts();
+}
+document.addEventListener('keydown',(e)=>{
+  if(e.key!=='Escape') return;
+  const m=document.getElementById('ctx-menu');
+  if(m && m.classList.contains('show')) hideCtxMenu();
+  else clearRoi();
+});
+
+// 현재값 배지 리셋
+function resetLiveBadges(){
+  SENSORS.forEach(s=>s.axes.forEach((ax,i)=>{
+    const el=document.getElementById(`lvn-${s.id}-${i}`);
+    if(el) el.textContent='—';
+  }));
 }
 
 function updateExpRange(){
@@ -890,6 +1866,7 @@ function toggleRecord(){
 
 function startRecording(){
   if(S.active.size===0){log('활성화된 센서가 없습니다.','err');return;}
+  if(!validateXyBeforeStart()) return;   // 기능 5-6: XY 변수 센서 토글 검증
   const delay = S.trigStart ? parseInt(document.getElementById('ts-val').value)*1000 : 0;
   const autoStop = S.trigEnd ? parseInt(document.getElementById('te-val').value)*1000 : 0;
 
@@ -904,7 +1881,12 @@ function startRecording(){
 }
 
 function _doStart(autoStopMs){
-  S.recording=true; S.chartLive=true;
+  resetCharts();          // 수집 시작 시 차트를 비우고 0부터 새로 그림
+  clearRoi();             // 이전 ROI 선택 해제
+  clearAnalysis();        // 접선·적분·피팅 오버레이 제거
+  Object.keys(S.xyRecorded).forEach(k=>S.xyRecorded[k]=[]);   // XY 기록 재시작
+  S.recording=true;
+  document.body.classList.add('recording');   // ⚙ 등 수집 중 비활성 표시
   S.recStart=Date.now(); S.recActualStart=new Date();
   S.ltSegStart=Date.now();
   setRecBtn('running','수집 종료');
@@ -921,7 +1903,8 @@ function _doStart(autoStopMs){
 function stopRecording(){
   clearTimeout(S.trigStartTimer); clearTimeout(S.trigEndTimer);
   S.recording=false;
-  // chartLive는 유지 — 연결이 살아있으면 차트는 계속 표시
+  document.body.classList.remove('recording');
+  // 차트는 마지막 상태로 정지·유지 — 관찰/ROI 구간 선택용
   clearInterval(S.recTimer);
   setRecBtn('idle','수집 시작');
   document.getElementById('conn-dot').classList.remove('rec');
@@ -948,7 +1931,16 @@ function setExportEnabled(on){
 }
 
 function clearData(){
+  if(S.recording){
+    if(!confirm('수집 중입니다. 중지하고 초기화할까요?')) return;
+    stopRecording();
+  }
   S.recorded=[];
+  Object.keys(S.xyRecorded).forEach(k=>S.xyRecorded[k]=[]);
+  resetCharts();
+  clearRoi();
+  clearAnalysis();        // 접선·피팅 곡선 등 분석 오버레이 포함 해제 (기능 3)
+  resetLiveBadges();
   document.getElementById('rec-samples').textContent=0;
   document.getElementById('rec-time').textContent='0:00';
   document.getElementById('rec-count').textContent=0;
@@ -974,16 +1966,32 @@ function buildMeta(){
   };
 }
 
-function exportCSV(){
-  if(!S.recorded.length){log('수집된 데이터가 없습니다.','err');return;}
-  exportData(S.recorded, 'ble_data_'+ts());
+// E-1 전역 내보내기: 내보내기 시점에 활성(토글 ON)인 센서의 행만 포함
+function _globalExportRows(){
+  const activeNames=new Set(SENSORS.filter(s=>S.active.has(s.id)).map(s=>s.name));
+  const rows=S.recorded.filter(r=>activeNames.has(r.sensor));
+  const excluded=[...new Set(S.recorded.filter(r=>!activeNames.has(r.sensor)).map(r=>r.sensor))];
+  return {rows, excluded, excludedRows:S.recorded.length-rows.length};
 }
-function exportXLSX(){
+function _exportGlobal(xlsx){
   if(!S.recorded.length){log('수집된 데이터가 없습니다.','err');return;}
-  exportData(S.recorded, 'ble_data_'+ts(), true);
+  if(S.active.size===0){log('활성 센서가 없습니다 — 전역 내보내기는 활성 센서의 행만 포함합니다.','err');return;}
+  const g=_globalExportRows();
+  if(!g.rows.length){log('활성 센서의 기록이 없습니다.','err');return;}
+  let extra=null;
+  if(g.excluded.length){
+    const msg=`비활성 센서 ${g.excluded.length}종의 기록 ${g.excludedRows}행은 제외됩니다`;
+    log(msg,'sys');
+    if(!confirm(msg+'.\n계속할까요?')) return;
+    extra={excluded_sensors:g.excluded.join(', ')};
+  }
+  exportData(g.rows, 'ble_data_'+ts(), xlsx, extra);
 }
-function exportData(rows, name, xlsx=false){
+function exportCSV(){ _exportGlobal(false); }
+function exportXLSX(){ _exportGlobal(true); }
+function exportData(rows, name, xlsx=false, extraMeta=null){
   const meta=buildMeta();
+  if(extraMeta) Object.assign(meta, extraMeta);
   if(!xlsx){
     // CSV: 메타 주석 → 데이터
     const metaLines=Object.entries(meta).map(([k,v])=>`# ${k}: ${v}`).join('\n');
@@ -1085,8 +2093,6 @@ function updateConnUI(on){
     document.getElementById('disconnect-btn').disabled=!on;
   }
   document.getElementById('rec-btn').disabled=!on&&!S.demoMode;
-  if(on) S.chartLive=true;
-  if(!on && !S.demoMode) S.chartLive=false;
 }
 
 // ═══════════════════════════════════════════════
@@ -1128,75 +2134,54 @@ const BLE_CHAR_MAP = {
   cmd     : '19b10010-e8f2-537e-4f6c-d104768a1214',
 };
 
-async function connectBLE(){
+// 디바이스 정보 특성 (Read 전용 — 연결 후 DEVICE ID 자동 획득)
+const BLE_DEVINFO = '19b10008-e8f2-537e-4f6c-d104768a1214';
+
+// ── 보드 별명(닉네임) 저장소 ──────────────────────────
+// { "A3F7": "모둠3", ... } 형태로 localStorage에 유지
+const NICK_KEY='sensorlab.nicknames';
+function loadNicks(){try{return JSON.parse(localStorage.getItem(NICK_KEY)||'{}');}catch(e){return{};}}
+function saveNicks(n){localStorage.setItem(NICK_KEY,JSON.stringify(n));}
+function nickOf(id){return loadNicks()[id]||null;}
+function boardLabel(id){const n=nickOf(id);return n?`${n} (BLE-${id})`:('BLE-'+id);}
+function removeNick(id){
+  const n=loadNicks(); delete n[id]; saveNicks(n); renderKnownBoards();
+  log(`저장된 보드 삭제: BLE-${id}`,'sys');
+}
+function renderKnownBoards(){
+  const nicks=loadNicks();
+  const ids=Object.keys(nicks);
+  const wrap=document.getElementById('ble-known-wrap');
+  const el=document.getElementById('ble-known');
+  wrap.style.display=ids.length?'':'none';
+  el.innerHTML='';
+  ids.forEach(id=>{
+    const chip=document.createElement('div');
+    chip.className='bchip';
+    chip.title=`클릭: ${nicks[id]} 재연결 · 우클릭: 삭제`;
+    chip.innerHTML=`<span>${esc(nicks[id])}</span><span class="bid">BLE-${id}</span><button class="bx" title="별명 삭제">✕</button>`;
+    chip.onclick=(e)=>{ if(e.target.classList.contains('bx')){e.stopPropagation();removeNick(id);return;} reconnectKnown(id); };
+    chip.oncontextmenu=(e)=>{ e.preventDefault(); if(confirm(`"${nicks[id]}" (BLE-${id}) 별명을 삭제할까요?`)) removeNick(id); };
+    el.appendChild(chip);
+  });
+}
+
+// ── BLE 연결 ─────────────────────────────────────────
+// 웹 블루투스 보안 모델상 최초 1회는 반드시 선택창에서 사용자가 장치를 골라야 한다.
+// (완전 무개입 자동 연결 불가) 별명은 그 이후의 재연결을 1클릭으로 만드는 장치다.
+async function connectBLE(targetId){
   if(!('bluetooth' in navigator)){
     log('Web Bluetooth 미지원 — Chrome / Edge 필요','err'); return;
   }
-  const id=document.getElementById('ble-pin').value.trim().toUpperCase();
-  if(id.length!==4){log('DEVICE ID 4자리를 입력하세요. (예: A3F7)','err');return;}
-
-  const deviceName='BLE-'+id;
-  S.blePIN=id;
-  log(`BLE 탐색 중: ${deviceName} ...`,'sys');
-  log('팝업에서 "'+deviceName+'" 을 선택하세요.','sys');
-
+  // targetId 지정 시 그 보드만 정확 필터, 아니면 우리 보드(BLE-*)만 목록에 표시
+  const filters = targetId ? [{name:'BLE-'+targetId}] : [{namePrefix:'BLE-'}];
+  log(targetId?`BLE 탐색 중: BLE-${targetId} ...`:'BLE 탐색 중 — 선택창에서 보드를 고르세요.','sys');
   try{
-    // acceptAllDevices: 주변 모든 BLE 장치를 목록에 표시
-    // → 사용자가 "BLE-XXXX" 직접 선택
     const device = await navigator.bluetooth.requestDevice({
-      acceptAllDevices: true,
+      filters,
       optionalServices: [BLE_SERVICE]
     });
-
-    // 선택된 장치명 검증
-    if(device.name && device.name !== deviceName){
-      const ok = confirm(
-        `선택된 장치: "${device.name}"\n` +
-        `입력한 ID:   "${deviceName}"\n\n` +
-        `장치가 다릅니다. 계속 연결하시겠습니까?`
-      );
-      if(!ok){ log('연결 취소됨','sys'); return; }
-    }
-
-    S.bleDevice=device;
-    device.addEventListener('gattserverdisconnected', onBLEDisconnected);
-    log('BLE 장치 선택됨: '+(device.name||'(이름 없음)'),'sys');
-
-    const server  = await device.gatt.connect();
-    S.bleServer   = server;
-    const service = await server.getPrimaryService(BLE_SERVICE);
-    S.bleService  = service;
-
-    S.bleChars={};
-    for(const [sid, uuid] of Object.entries(BLE_CHAR_MAP)){
-      try{
-        const ch = await service.getCharacteristic(uuid);
-        S.bleChars[sid] = ch;
-        if(sid !== 'cmd'){
-          await ch.startNotifications();
-          ch.addEventListener('characteristicvaluechanged', (e)=>{
-            const line = new TextDecoder().decode(e.target.value);
-            onBLELine(line);
-          });
-        }
-      }catch(e){}
-    }
-
-    S.bleConnected=true;
-    S.connected=true;
-    updateConnUI(true);
-    document.getElementById('ble-connect-btn').disabled=true;
-    document.getElementById('ble-disconnect-btn').disabled=false;
-
-    const info=document.getElementById('ble-device-info');
-    info.style.display='';
-    info.innerHTML=`연결됨: <b>${device.name||deviceName}</b>`;
-
-    document.getElementById('conn-dot').classList.add('on');
-    document.getElementById('conn-label').textContent='BLE: '+(device.name||deviceName);
-    log(`BLE 연결 완료: ${device.name||deviceName}`,'sys');
-    sendSensorCfg();
-
+    await setupBLEDevice(device);
   }catch(e){
     if(e.name==='NotFoundError')
       log('장치 선택이 취소됐습니다.','err');
@@ -1205,6 +2190,94 @@ async function connectBLE(){
     else
       log('BLE 연결 실패: '+e.message,'err');
   }
+}
+
+// 고급 패널: DEVICE ID 수동 지정 경로 (비상용)
+function connectBLEManual(){
+  const id=document.getElementById('ble-pin').value.trim().toUpperCase();
+  if(id.length!==4){log('DEVICE ID 4자리를 입력하세요. (예: A3F7)','err');return;}
+  connectBLE(id);
+}
+
+// 저장된 보드 칩 클릭 → 재연결
+async function reconnectKnown(id){
+  if(!('bluetooth' in navigator)){log('Web Bluetooth 미지원','err');return;}
+  const name='BLE-'+id;
+  // getDevices() 지원 브라우저(크롬 데스크톱): 이미 허가된 장치면 선택창 없이 재연결
+  if(navigator.bluetooth.getDevices){
+    try{
+      const devs=await navigator.bluetooth.getDevices();
+      const d=devs.find(x=>x.name===name);
+      if(d){
+        log(`재연결 시도: ${boardLabel(id)} (선택창 없음)`,'sys');
+        await setupBLEDevice(d);
+        return;
+      }
+    }catch(e){ /* 미지원/실패 시 아래 폴백 */ }
+  }
+  // 폴백: 해당 이름 정확 필터로 선택창 1탭
+  connectBLE(id);
+}
+
+// 장치 선택/획득 이후의 공통 연결 절차
+async function setupBLEDevice(device){
+  S.bleDevice=device;
+  device.addEventListener('gattserverdisconnected', onBLEDisconnected);
+  log('BLE 장치: '+(device.name||'(이름 없음)'),'sys');
+
+  const server  = await device.gatt.connect();
+  S.bleServer   = server;
+  const service = await server.getPrimaryService(BLE_SERVICE);
+  S.bleService  = service;
+
+  S.bleChars={};
+  for(const [sid, uuid] of Object.entries(BLE_CHAR_MAP)){
+    try{
+      const ch = await service.getCharacteristic(uuid);
+      S.bleChars[sid] = ch;
+      if(sid !== 'cmd'){
+        await ch.startNotifications();
+        ch.addEventListener('characteristicvaluechanged', (e)=>{
+          const line = new TextDecoder().decode(e.target.value);
+          onBLELine(line);
+        });
+      }
+    }catch(e){}
+  }
+
+  // DeviceInfo 특성에서 DEVICE ID 자동 획득 (입력 불필요)
+  let devId='';
+  try{
+    const ch=await service.getCharacteristic(BLE_DEVINFO);
+    devId=new TextDecoder().decode(await ch.readValue()).trim().toUpperCase();
+  }catch(e){}
+  if(!devId && device.name && device.name.startsWith('BLE-')) devId=device.name.slice(4);
+  S.blePIN=devId;
+
+  // 처음 보는 보드면 별명 등록 제안
+  if(devId && !nickOf(devId)){
+    const nk=prompt(`이 보드의 별명? 예: 모둠3\n(비워두면 저장하지 않음)`,'');
+    if(nk && nk.trim()){
+      const n=loadNicks(); n[devId]=nk.trim(); saveNicks(n); renderKnownBoards();
+      log(`별명 저장: ${nk.trim()} = BLE-${devId}`,'sys');
+    }
+  }
+
+  S.bleConnected=true;
+  S.connected=true;
+  updateConnUI(true);
+  document.getElementById('ble-connect-btn').disabled=true;
+  document.getElementById('ble-disconnect-btn').disabled=false;
+
+  const label = devId ? boardLabel(devId) : (device.name||'BLE 장치');
+  const info=document.getElementById('ble-device-info');
+  info.style.display='';
+  info.innerHTML=`연결됨: <b>${esc(label)}</b>`;
+
+  document.getElementById('conn-dot').classList.add('on');
+  document.getElementById('conn-label').textContent='BLE: '+label;
+  log(`BLE 연결 완료: ${label}`,'sys');
+  sendSensorCfg();
 }
 
 function onBLELine(line){
@@ -1251,7 +2324,6 @@ function runDemo(){
   if(S.demoMode){
     clearInterval(S.demoTimer); S.demoMode=false;
     if(S.recording)stopRecording();
-    S.chartLive=false;
     document.getElementById('demo-btn').innerHTML=
       '<svg viewBox="0 0 16 16" fill="currentColor"><polygon points="3,2 14,8 3,14"/></svg>데모 모드';
     document.getElementById('rec-btn').disabled=!S.connected;
@@ -1264,7 +2336,6 @@ function runDemo(){
     S.active.add(id); document.getElementById('si-'+id).classList.add('active');
   });
   rebuildCharts();
-  S.chartLive=true;
   document.getElementById('conn-dot').classList.add('on');
   document.getElementById('conn-label').textContent='데모 모드';
   document.getElementById('rec-btn').disabled=false;
@@ -1275,7 +2346,6 @@ function runDemo(){
   const iv=Math.max(50,Math.round(1000/S.hz));
   S.demoTimer=setInterval(()=>{
     t+=0.05;
-    if(!S.chartLive)return;
     pushData('imu_acc',[+(Math.sin(t)*2+(Math.random()-.5)*.3).toFixed(3),+(Math.cos(t*.7)*1.5+(Math.random()-.5)*.3).toFixed(3),+(9.81+Math.sin(t*.3)*.5+(Math.random()-.5)*.2).toFixed(3)]);
     pushData('imu_gyr',[+(Math.sin(t*1.2)*15+(Math.random()-.5)*2).toFixed(2),+(Math.cos(t*.8)*12+(Math.random()-.5)*2).toFixed(2),+(Math.sin(t*.5)*8+(Math.random()-.5)).toFixed(2)]);
     pushData('temp_hum',[+(22+Math.sin(t*.1)*3+(Math.random()-.5)*.5).toFixed(1),+(55+Math.sin(t*.08)*10+(Math.random()-.5)*2).toFixed(1)]);
@@ -1963,6 +3033,7 @@ function switchTab(id){
 // 초기화
 // ═══════════════════════════════════════════════
 buildSensorList();
+renderKnownBoards();
 log('Arduino Nano 33 BLE 대시보드 v2.1 로드됨','sys');
 log('Web Serial API: '+('serial' in navigator?'지원됨 ✓':'미지원 ✗ — Chrome/Edge 필요'),'serial' in navigator?'sys':'err');
 log('Web Bluetooth API: '+('bluetooth' in navigator?'지원됨 ✓':'미지원 ✗ — Chrome/Edge 필요'),'bluetooth' in navigator?'sys':'err');
