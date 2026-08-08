@@ -855,6 +855,12 @@ function gvar(v){
   return v==='time' ? {time:true, label:'시간', unit:'s'} : _parseVar(v);
 }
 function _graph(gid){ return S.graphs.find(g=>g.gid===gid); }
+// 변수의 시리즈 색 — 센서 기본색에 축 인덱스별 음영(colorVar) 적용
+function seriesColor(v){
+  const s=SENSORS.find(t=>t.id===v.sid);
+  if(!s) return '#3d7eff';
+  return colorVar(s.color, v.axis, s.axes.length);
+}
 function defaultGraph(){ return {gid:newGid(), x:'time', y:_firstActiveVar(), y2:null}; }
 
 function saveWorkspace(){
@@ -987,16 +993,18 @@ function createGraphChart(g){
   const ctx=canvas.getContext('2d');
   const isXY=g.x!=='time';
   const Y=gvar(g.y), Y2=g.y2?gvar(g.y2):null;
-  const c0=SENSORS.find(s=>s.id===Y.sid)?.color||'#3d7eff';
-  const c1=Y2?(SENSORS.find(s=>s.id===Y2.sid)?.color||'#a78bfa'):null;
+  // 시리즈 색: 같은 센서의 다른 축도 구분되도록 축별 음영 적용
+  const c0=seriesColor(Y);
+  const c1=Y2?seriesColor(Y2):null;
 
-  const mkDs=(label,color,axisId)=>({
+  const mkDs=(label,color,axisId,dash)=>({
     label, data:[],
     borderColor:color, backgroundColor:'transparent',
     borderWidth:1.5, pointRadius:isXY?1.5:0, tension:isXY?0:0.3,
     yAxisID:axisId,
+    ...(dash?{borderDash:[6,3]}:{}),   // 우측 y축 시리즈는 점선 — 다중 벡터 시각 구분
   });
-  S.chartData[gid]={datasets:[mkDs(Y.label,c0,'y'), ...(Y2?[mkDs(Y2.label,c1,'y2')]:[])]};
+  S.chartData[gid]={datasets:[mkDs(Y.label,c0,'y',false), ...(Y2?[mkDs(Y2.label,c1,'y2',true)]:[])]};
 
   const scales={
     x:{ type:'linear', grid:{color:_gridC()},
@@ -1032,7 +1040,7 @@ function updateGraphTitle(gid){
   const t=document.getElementById('gt-'+gid);
   if(t) t.textContent=`${Y.label}${Y2?' · '+Y2.label:''}  vs  ${g.x==='time'?'시간':gvar(g.x).label}`;
   const bar=document.getElementById('gbar-'+gid);
-  if(bar) bar.style.background=SENSORS.find(s=>s.id===Y.sid)?.color||'#3d7eff';
+  if(bar) bar.style.background=seriesColor(Y);
   const gb=document.getElementById('gb-'+gid);
   if(gb) gb.classList.toggle('hasy2', !!Y2);
   const y2g=document.getElementById('y2g-'+gid);
@@ -1409,9 +1417,10 @@ function renderSeriesToggles(gid){
   el.style.display='';
   const off=_offSet(gid);
   el.innerHTML=sers.map((v,k)=>{
-    const color=SENSORS.find(t=>t.id===v.sid)?.color||'#3d7eff';
+    const color=seriesColor(v);
+    // 우측 y축(k=1) 시리즈는 라벨에도 점선 표시(‑ ‑)로 구분
     return `<label class="st-item${off.has(k)?' off':''}" style="color:${color}">`+
-      `<input type="checkbox" ${off.has(k)?'':'checked'} onchange="toggleSeries('${gid}',${k})">${v.label}</label>`;
+      `<input type="checkbox" ${off.has(k)?'':'checked'} onchange="toggleSeries('${gid}',${k})">${v.label}${k===1?' ┄':''}</label>`;
   }).join('');
 }
 let _roiDrag=null;      // {sid,x0} 드래그 진행 상태
