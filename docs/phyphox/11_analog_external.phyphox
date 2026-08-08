@@ -1,6 +1,8 @@
 <phyphox xmlns="http://phyphox.org/xml" version="1.14">
     <title>외장 센서 (아날로그)</title>
-    <category>Nano 33 BLE Sense</category>
+    <icon format="string">EXT</icon>
+    <color>42eaff</color>
+    <category>Nano 33 BLE Sense (외장)</category>
     <description>A0·A1·A2 핀의 전압을 측정합니다. 외장 아날로그 센서를 연결해 사용하세요.</description>
 
     <data-containers>
@@ -69,8 +71,7 @@
         <info label="4. 데이터 저장: 우측 상단 메뉴 → '데이터 내보내기' (CSV / Excel)."/>
         <separator height="0.3"/>
         <info label="센서 출력을 A0~A2에, GND를 보드 GND에 연결하세요 (0~3.3 V 범위!)."/>
-        <info label="물리량 환산(예: 전압→온도)은 펌웨어의 choice 9 부분에서 수식을 수정하거나,"/>
-        <info label="이 파일의 analysis 모듈로 앱에서 직접 계산할 수도 있습니다."/>
+        <info label="물리량 환산(예: 전압→온도)은 펌웨어의 choice 9 수식을 수정하세요."/>
     </view>
     </views>
 

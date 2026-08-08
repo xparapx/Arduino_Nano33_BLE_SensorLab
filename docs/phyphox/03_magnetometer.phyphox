@@ -1,5 +1,7 @@
 <phyphox xmlns="http://phyphox.org/xml" version="1.14">
-    <title>자기장 (Nano BLE)</title>
+    <title>자기장</title>
+    <icon format="string">MAG</icon>
+    <color>42eaff</color>
     <category>Nano 33 BLE Sense</category>
     <description>BMM150으로 3축 자기장을 측정합니다. 지구 자기장은 약 25~65 µT입니다.</description>
 

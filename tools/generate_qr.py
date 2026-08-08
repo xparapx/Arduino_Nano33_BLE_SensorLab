@@ -3,7 +3,7 @@
 # 의존성: pip install "qrcode[pil]"
 import qrcode, os
 
-BASE = "https://xparapx.github.io/Arduino_Nano33_BLE_WebUI_Demo/phyphox"
+BASE = "https://xparapx.github.io/Arduino_Nano33_BLE_SensorLab/phyphox"
 SRC, QR = "docs/phyphox", "docs/phyphox/qr"
 os.makedirs(QR, exist_ok=True)
 
