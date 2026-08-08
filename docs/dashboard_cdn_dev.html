@@ -88,6 +88,8 @@ header{display:flex;align-items:center;justify-content:space-between;padding:0 1
 .s-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
 .s-name{font-size:13px;font-weight:600;}
 .s-axes{font-size:10px;color:var(--text3);margin-top:2px;}
+.s-vals{font-size:10px;font-family:'JetBrains Mono','Fira Code',monospace;
+  color:var(--text2);margin-top:2px;}   /* r4-D: 좌측 패널 현재값 배지 */
 .toggle{width:30px;height:17px;border-radius:9px;background:var(--bg4);position:relative;transition:background .2s;flex-shrink:0;border:1px solid var(--border);}
 .toggle::after{content:'';position:absolute;top:2px;left:2px;width:11px;height:11px;border-radius:50%;background:var(--text3);transition:all .2s;}
 .sensor-item.active .toggle{background:var(--accent);border-color:var(--accent);}
@@ -657,7 +659,7 @@ function toggleTheme(){
   // Chart 색상 업데이트
   Chart.defaults.color = S.theme==='dark'?'#8892a4':'#555f72';
   Chart.defaults.borderColor = S.theme==='dark'?'rgba(255,255,255,0.05)':'rgba(0,0,0,0.07)';
-  Object.values(S.charts).forEach(c=>c.update());
+  applyThemeToCharts();   // r4-A: 격자·경계 색을 테마에 맞게 갱신
 }
 
 // ═══════════════════════════════════════════════
@@ -672,7 +674,8 @@ function buildSensorList(){
     d.innerHTML=`<div class="s-left">
       <div class="s-dot" style="background:${s.color}"></div>
       <div><div class="s-name">${s.name}</div>
-      <div class="s-axes">${s.axes.join(' · ')} &nbsp;·&nbsp; ${s.lib}</div></div>
+      <div class="s-axes">${s.axes.join(' · ')} &nbsp;·&nbsp; ${s.lib}</div>
+      <div class="s-vals" id="plv-${s.id}">—</div></div>
     </div><div class="toggle"></div>`;
     el.appendChild(d);
   });
@@ -680,14 +683,14 @@ function buildSensorList(){
 function toggleSensor(id){
   S.active.has(id)?S.active.delete(id):S.active.add(id);
   document.getElementById('si-'+id).classList.toggle('active');
-  rebuildCharts(); sendSensorCfg();
+  sendSensorCfg();
 }
 function toggleAll(on){
   SENSORS.forEach(s=>{
     on?S.active.add(s.id):S.active.delete(s.id);
     document.getElementById('si-'+s.id).classList.toggle('active',on);
   });
-  rebuildCharts(); sendSensorCfg();
+  sendSensorCfg();
 }
 
 // ═══════════════════════════════════════════════
@@ -744,182 +747,397 @@ document.getElementById('ts-val').addEventListener('input',refreshTrigInfo);
 document.getElementById('te-val').addEventListener('input',refreshTrigInfo);
 
 // ═══════════════════════════════════════════════
-// 차트 재구성
+// r4-D: 그래프 워크스페이스 (SPARKvue 방식)
+//  - 기본 그래프 1개, ⊕로 Y축 추가/그래프 영역 추가(최대 4)
+//  - 헤더 드래그 도킹(1행 2열 마그네틱), 레이아웃 localStorage 유지
+//  - 센서 활성화 토글은 "수집 대상" 결정일 뿐, 차트 자동 생성 없음
 // ═══════════════════════════════════════════════
 Chart.defaults.color='#8892a4';
 Chart.defaults.borderColor='rgba(255,255,255,0.05)';
 
-function rebuildCharts(){
-  const active=SENSORS.filter(s=>S.active.has(s.id));
-  const grid=document.getElementById('chart-grid');
-  const empty=document.getElementById('chart-empty');
+const WS_KEY='sensorlab.workspace';
+let _gseq=1;
+function newGid(){ return 'g'+(_gseq++); }
 
-  // 비활성 차트 제거
-  Object.keys(S.charts).forEach(id=>{
-    if(!S.active.has(id)){
-      S.charts[id].destroy(); delete S.charts[id]; delete S.chartData[id];
-      const c=document.getElementById('cc-'+id); if(c) c.remove();
-    }
+// r4-A: 테마별 격자·경계 색 (라이트에서 격자 소실 방지)
+function _gridC(){ return S.theme==='dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.08)'; }
+function applyThemeToCharts(){
+  Object.values(S.charts).forEach(ch=>{
+    Object.values(ch.options.scales).forEach(sc=>{
+      if(sc.grid && sc.grid.drawOnChartArea!==false) sc.grid.color=_gridC();
+      sc.border=sc.border||{}; sc.border.color=_gridC();
+    });
+    ch.update();
   });
+}
 
-  if(active.length===0){empty.style.display='flex';grid.style.display='none';return;}
-  empty.style.display='none';
-  grid.style.display='grid';
-  grid.className='chart-grid'+(active.length===1?' single':'');
+function _firstActiveVar(){
+  const s=SENSORS.find(t=>S.active.has(t.id)) || SENSORS[0];
+  return `${s.id}:0`;
+}
+function gvar(v){
+  return v==='time' ? {time:true, label:'시간', unit:'s'} : _parseVar(v);
+}
+function _graph(gid){ return S.graphs.find(g=>g.gid===gid); }
+function defaultGraph(){ return {gid:newGid(), x:'time', y:_firstActiveVar(), y2:null}; }
 
-  const hMap={1:340,2:240,3:210,4:190,5:170,6:155,7:145};
-  const h=hMap[Math.min(active.length,7)]||145;
+function saveWorkspace(){
+  try{
+    localStorage.setItem(WS_KEY, JSON.stringify({graphs:S.graphs, rows:S.layoutRows, seq:_gseq}));
+  }catch(e){}
+}
+function loadWorkspace(){
+  try{
+    const d=JSON.parse(localStorage.getItem(WS_KEY)||'null');
+    const okVar=v=>v==='time' || (typeof v==='string' && SENSORS.some(s=>v.startsWith(s.id+':')));
+    if(d && Array.isArray(d.graphs) && d.graphs.length &&
+       d.graphs.every(g=>g.gid && okVar(g.x) && okVar(g.y) && (g.y2==null||okVar(g.y2)))){
+      S.graphs=d.graphs.slice(0,4);
+      _gseq=d.seq||S.graphs.length+1;
+      const gids=new Set(S.graphs.map(g=>g.gid));
+      S.layoutRows=(Array.isArray(d.rows)?d.rows:[]).map(r=>r.filter(g=>gids.has(g))).filter(r=>r.length);
+      const placed=new Set(S.layoutRows.flat());
+      S.graphs.forEach(g=>{ if(!placed.has(g.gid)) S.layoutRows.push([g.gid]); });
+      return;
+    }
+  }catch(e){}
+  const g=defaultGraph();
+  S.graphs=[g];
+  S.layoutRows=[[g.gid]];
+}
 
-  active.forEach(s=>{
-    if(S.charts[s.id]) return;
-    const card=document.createElement('div');
-    card.className='chart-card'; card.id='cc-'+s.id;
-    card.innerHTML=`
-      <div class="chart-hdr">
-        <div class="chart-title-row">
-          <div class="chart-bar" style="background:${s.color}"></div>
-          <div>
-            <div class="chart-title">${s.name} <span style="color:var(--text3);font-weight:400;font-size:11px;">${s.sub}</span></div>
-            <div class="chart-sub" id="csub-${s.id}">${s.lib} · ${s.unit||'—'}</div>
-          </div>
-        </div>
-        <div style="display:flex;align-items:center;gap:8px;">
-          <div class="live-vals" id="lv-${s.id}">
-            ${s.axes.map((ax,i)=>`<div class="lv" style="color:${colorVar(s.color,i,s.axes.length)}">
-              <div class="lv-num" id="lvn-${s.id}-${i}">—</div>
-              <div class="lv-lbl">${ax}</div>
-            </div>`).join('')}
-          </div>
-        </div>
+// ── 카드 DOM ──
+function buildGraphCard(g){
+  const gid=g.gid;
+  const card=document.createElement('div');
+  card.className='chart-card'; card.id='gc-'+gid;
+  card.innerHTML=`
+    <div class="chart-hdr g-hdr" id="gh-${gid}" title="드래그: 위치 이동 (우측 절반에 놓으면 2열 도킹)">
+      <div class="chart-title-row">
+        <div class="chart-bar" id="gbar-${gid}"></div>
+        <div><div class="chart-title" id="gt-${gid}"></div></div>
       </div>
-      <div class="series-row" id="sr-${s.id}"></div>
-      <div class="chart-body">
-        <canvas id="cv-${s.id}" height="${h}"></canvas>
-        <button class="ax-chip ax-x" id="axx-${s.id}" title="x축 변수 선택 (클릭)" onclick="axisMenuX('${s.id}',event)">시간 (s)</button>
-        <button class="ax-chip ax-y" id="axy-${s.id}" title="y축 설정 (클릭)" onclick="axisMenuY('${s.id}',event)"></button>
-        <div class="ana-toolbar" id="tb-${s.id}">
-          <button data-tool="fitview" title="크기 최적화 (재클릭: 자동 복귀)" onclick="anaFitView('${s.id}',this)">
+      <div class="g-btns">
+        <button class="g-btn" title="Y축 추가 · 그래프 영역 추가" onclick="event.stopPropagation();graphPlusMenu('${gid}',event)">⊕</button>
+        <button class="g-btn" id="gx-${gid}" title="그래프 영역 제거" onclick="event.stopPropagation();removeGraph('${gid}')">✕</button>
+      </div>
+    </div>
+    <div class="series-row" id="sr-${gid}"></div>
+    <div class="g-body" id="gb-${gid}">
+      <div class="g-ygut">
+        <button class="ax-chip ax-yv" id="axy-${gid}" title="y축 변수 선택 (클릭)" onclick="axisMenuY('${gid}',event)"></button>
+      </div>
+      <div class="g-plot">
+        <canvas id="cv-${gid}" height="230"></canvas>
+        <div class="ana-toolbar" id="tb-${gid}">
+          <button data-tool="fitview" title="크기 최적화 (재클릭: 자동 복귀)" onclick="anaFitView('${gid}',this)">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M9 3H3v6M15 3h6v6M9 21H3v-6M15 21h6v-6"/></svg>
           </button>
-          <button data-tool="tangent" title="접선(기울기)" onclick="anaTangentToggle('${s.id}',this)">
+          <button data-tool="tangent" title="접선(기울기)" onclick="anaTangentToggle('${gid}',this)">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M3 20 C 7.5 20, 8.5 6, 12 6 C 15.5 6, 16.5 20, 21 20"/><line x1="4" y1="13" x2="17" y2="3.5"/><circle cx="10.2" cy="7.6" r="1.4" fill="currentColor" stroke="none"/></svg>
           </button>
-          <button data-tool="integral" title="면적(적분) — 구간 드래그 필요" onclick="event.stopPropagation();anaIntegral('${s.id}')">
+          <button data-tool="integral" title="면적(적분) — 영역 드래그 필요" onclick="event.stopPropagation();anaIntegral('${gid}')">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M15.5 3.5c-3 0-3.5 2-3.5 5v7c0 3-.5 5-3.5 5"/><path d="M6.8 20.5h.01M17.2 3.5h.01"/></svg>
           </button>
-          <button data-tool="fit" title="구간 피팅 — 구간 드래그 필요" onclick="event.stopPropagation();anaFitOpen('${s.id}')">
+          <button data-tool="fit" title="영역 피팅 — 영역 드래그 필요" onclick="event.stopPropagation();anaFitOpen('${gid}')">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M3 19 C 7 8, 13 4.5, 21 7.5"/><circle cx="5.5" cy="16.5" r="1.5" fill="currentColor" stroke="none"/><circle cx="9" cy="8.5" r="1.5" fill="currentColor" stroke="none"/><circle cx="13.5" cy="7" r="1.5" fill="currentColor" stroke="none"/><circle cx="18.5" cy="8.5" r="1.5" fill="currentColor" stroke="none"/></svg>
           </button>
         </div>
       </div>
-      <details class="ana-result" id="ar-${s.id}">
-        <summary>분석 결과
-          <span class="ar-tools">
-            <button onclick="event.stopPropagation();event.preventDefault();anaCopy('${s.id}')">복사</button>
-            <button onclick="event.stopPropagation();event.preventDefault();anaClearChart('${s.id}')">지우기</button>
-          </span>
-        </summary>
-        <div class="ar-body" id="arb-${s.id}"></div>
-      </details>`;
-    grid.appendChild(card);
-    createChart(s);
-  });
+      <div class="g-y2gut" id="y2g-${gid}" style="display:none;">
+        <button class="ax-chip ax-yv" id="axy2-${gid}" title="우측 y축 변수 (클릭)" onclick="axisMenuY2('${gid}',event)"></button>
+      </div>
+    </div>
+    <div class="g-xrow">
+      <button class="ax-chip ax-x" id="axx-${gid}" title="x축 변수 선택 (클릭)" onclick="axisMenuX('${gid}',event)">시간 (s)</button>
+    </div>
+    <details class="ana-result" id="ar-${gid}">
+      <summary>분석 결과
+        <span class="ar-tools">
+          <button onclick="event.stopPropagation();event.preventDefault();anaCopy('${gid}')">복사</button>
+          <button onclick="event.stopPropagation();event.preventDefault();anaClearChart('${gid}')">지우기</button>
+        </span>
+      </summary>
+      <div class="ar-body" id="arb-${gid}"></div>
+    </details>`;
+  return card;
 }
 
-// 차트 인스턴스 생성 — S.chartCfg[sid]에 따라 시간 모드 / XY 모드
-function createChart(s){
-  const sid=s.id;
-  const cfg=S.chartCfg[sid];
-  const isXY = cfg && cfg.mode==='xy';
-  const canvas=document.getElementById('cv-'+sid);
+// ── 워크스페이스 렌더 (카드 DOM은 보존·이동 — 차트 인스턴스 유지) ──
+function renderWorkspace(){
+  const ws=document.getElementById('workspace');
+  if(!ws) return;
+  const keep={};
+  S.graphs.forEach(g=>{
+    const el=document.getElementById('gc-'+g.gid);
+    if(el){ keep[g.gid]=el; el.remove(); }
+  });
+  ws.innerHTML='';
+  S.layoutRows.forEach(row=>{
+    const rd=document.createElement('div');
+    rd.className='ws-row'+(row.length>1?' two':'');
+    row.forEach(gid=>{
+      const g=_graph(gid); if(!g) return;
+      let el=keep[gid];
+      if(!el){
+        el=buildGraphCard(g);
+        rd.appendChild(el);
+        createGraphChart(g);
+        const cv=document.getElementById('cv-'+gid);
+        if(cv && !cv.$roiAttached){ attachRoiDrag(cv, gid); cv.$roiAttached=true; }
+        attachDockDrag(document.getElementById('gh-'+gid), gid);
+      } else rd.appendChild(el);
+    });
+    ws.appendChild(rd);
+  });
+  // ✕ 버튼: 마지막 1개 보호
+  S.graphs.forEach(g=>{
+    const x=document.getElementById('gx-'+g.gid);
+    if(x) x.style.display = S.graphs.length>1 ? '' : 'none';
+  });
+  Object.values(S.charts).forEach(c=>{ if(c.resize) try{c.resize();}catch(e){} });
+  saveWorkspace();
+}
+
+// ── 차트 인스턴스 생성 ──
+function createGraphChart(g){
+  const gid=g.gid;
+  const canvas=document.getElementById('cv-'+gid);
   if(!canvas) return;
-  if(S.charts[sid]){ S.charts[sid].destroy(); delete S.charts[sid]; }
+  if(S.charts[gid]){ S.charts[gid].destroy(); delete S.charts[gid]; }
   const ctx=canvas.getContext('2d');
+  const isXY=g.x!=='time';
+  const Y=gvar(g.y), Y2=g.y2?gvar(g.y2):null;
+  const c0=SENSORS.find(s=>s.id===Y.sid)?.color||'#3d7eff';
+  const c1=Y2?(SENSORS.find(s=>s.id===Y2.sid)?.color||'#a78bfa'):null;
 
-  const gridColor=()=>S.theme==='dark'?'rgba(255,255,255,0.04)':'rgba(0,0,0,0.05)';
+  const mkDs=(label,color,axisId)=>({
+    label, data:[],
+    borderColor:color, backgroundColor:'transparent',
+    borderWidth:1.5, pointRadius:isXY?1.5:0, tension:isXY?0:0.3,
+    yAxisID:axisId,
+  });
+  S.chartData[gid]={datasets:[mkDs(Y.label,c0,'y'), ...(Y2?[mkDs(Y2.label,c1,'y2')]:[])]};
 
-  // temp_hum은 Temp(°C)와 Hum(%)의 스케일이 달라 독립 y축 적용 (시간 모드 한정)
-  const isTempHum = !isXY && sid === 'temp_hum';
-
-  if(isXY){
-    // XY 모드: 페어링된 {x,y} 단일 시리즈 (시간순 연결 궤적)
-    S.chartData[sid]={
-      datasets:[{
-        label:`${cfg.yLabel}`, data:[],
-        borderColor:s.color, backgroundColor:'transparent',
-        borderWidth:1.2, pointRadius:1.5, tension:0,
-      }]
-    };
-  } else {
-    // R0: x축 숫자축 — 각 포인트는 {x: elapsed_s, y: value}
-    S.chartData[sid]={
-      datasets:s.axes.map((ax,i)=>({
-        label:ax, data:[],
-        borderColor:colorVar(s.color,i,s.axes.length),
-        backgroundColor:'transparent',
-        borderWidth:1.5, pointRadius:0, tension:0.3,
-        ...(isTempHum ? {yAxisID: i===0?'yTemp':'yHum'} : {}),
-      }))
-    };
-  }
-
-  // R0: x축은 linear — 접선/적분/피팅/XY 플롯의 전제.
-  // QA r3-1: Chart.js 축 타이틀은 전부 끔 — 축 칩이 유일한 축 라벨 (겹침 제거)
-  const xScale={
-    type:'linear',
-    grid:{color:gridColor()},
-    ticks:{maxTicksLimit:7,font:{size:9},callback:v=>(+v).toFixed(1)},
-    title:{display:false},
+  const scales={
+    x:{ type:'linear', grid:{color:_gridC()},
+        ticks:{maxTicksLimit:7,font:{size:9},callback:v=>(+v).toFixed(1)},
+        title:{display:false} },
+    y:{ grid:{color:_gridC()}, ticks:{font:{size:9},maxTicksLimit:5,color:c0}, title:{display:false} },
   };
-  const scalesOpt = isTempHum ? {
-    x:xScale,
-    yTemp:{
-      type:'linear', position:'left',
-      grid:{color:gridColor()},
-      ticks:{font:{size:9},maxTicksLimit:5,color:'#f5a623'},
-      title:{display:false},
-    },
-    yHum:{
-      type:'linear', position:'right',
-      grid:{drawOnChartArea:false},
-      ticks:{font:{size:9},maxTicksLimit:5,color:'#aaa'},
-      title:{display:false},
-      min:0, max:100,
-    },
-  } : {
-    x:xScale,
-    y:{
-      grid:{color:gridColor()},
-      ticks:{font:{size:9},maxTicksLimit:5},
-      title:{display:false},
-    },
-  };
+  if(Y2) scales.y2={ position:'right', grid:{drawOnChartArea:false},
+                     ticks:{font:{size:9},maxTicksLimit:5,color:c1}, title:{display:false} };
 
-  S.charts[sid]=new Chart(ctx,{
-    type:'line', data:S.chartData[sid],
+  S.charts[gid]=new Chart(ctx,{
+    type:'line', data:S.chartData[gid],
     options:{
       animation:false, responsive:true, maintainAspectRatio:false,
       plugins:{
-        // B-2: 기본 범례 비활성 — 커스텀 성분 토글 행으로 일원화 (이중화 방지)
-        legend:{display:false},
-        tooltip:{mode:isXY?'nearest':'index',intersect:false,callbacks:{label:c=>` ${c.dataset.label}: ${c.parsed.y?.toFixed(isTempHum?1:3)??'—'}`}}
+        legend:{display:false},   // 커스텀 성분 토글 행으로 일원화 (B-2)
+        tooltip:{mode:'nearest',intersect:false,callbacks:{label:c=>` ${c.dataset.label}: ${c.parsed.y?.toFixed(3)??'—'}`}}
       },
-      scales: scalesOpt,
-      interaction:{mode:isXY?'nearest':'index',intersect:false}
+      scales,
+      interaction:{mode:'nearest',intersect:false}
     }
   });
-  S.charts[sid].$sid=sid;                 // ROI·분석 플러그인용 역참조
-  if(!canvas.$roiAttached){               // 핸들러 중복 부착 방지
-    attachRoiDrag(canvas, sid);
-    canvas.$roiAttached=true;
-  }
+  S.charts[gid].$sid=gid;
+  applySeriesVisibility(gid);
+  updateAxisChips(gid);
+  renderSeriesToggles(gid);
+  updateGraphTitle(gid);
+}
 
-  // 숨김 성분 반영 + 헤더 서브라벨·축 칩·성분 토글 행 갱신
-  applySeriesVisibility(sid);
-  const sub=document.getElementById('csub-'+sid);
-  if(sub) sub.textContent = isXY ? `XY 플롯 · x=${cfg.xLabel} · y=${cfg.yLabel}` : `${s.lib} · ${s.unit||'—'}`;
-  updateAxisChips(sid);
-  renderSeriesToggles(sid);
+function updateGraphTitle(gid){
+  const g=_graph(gid); if(!g) return;
+  const Y=gvar(g.y), Y2=g.y2?gvar(g.y2):null;
+  const t=document.getElementById('gt-'+gid);
+  if(t) t.textContent=`${Y.label}${Y2?' · '+Y2.label:''}  vs  ${g.x==='time'?'시간':gvar(g.x).label}`;
+  const bar=document.getElementById('gbar-'+gid);
+  if(bar) bar.style.background=SENSORS.find(s=>s.id===Y.sid)?.color||'#3d7eff';
+  const gb=document.getElementById('gb-'+gid);
+  if(gb) gb.classList.toggle('hasy2', !!Y2);
+  const y2g=document.getElementById('y2g-'+gid);
+  if(y2g) y2g.style.display=Y2?'':'none';
+}
+
+// ── 축 칩 (r4-B: 전용 거터·하단 행 — 캔버스 겹침 0) ──
+function updateAxisChips(gid){
+  const g=_graph(gid); if(!g) return;
+  const X=g.x==='time'?null:gvar(g.x);
+  const Y=gvar(g.y), Y2=g.y2?gvar(g.y2):null;
+  const xc=document.getElementById('axx-'+gid);
+  const yc=document.getElementById('axy-'+gid);
+  const y2c=document.getElementById('axy2-'+gid);
+  if(xc) xc.textContent = X ? `${X.label}${X.unit?` (${X.unit})`:''}` : '시간 (s)';
+  if(yc) yc.textContent = `${Y.label}${Y.unit?` (${Y.unit})`:''}`;
+  if(y2c && Y2) y2c.textContent = `${Y2.label}${Y2.unit?` (${Y2.unit})`:''}`;
+}
+
+// ── 변수 변경 ──
+function resetGraphData(gid){
+  S.graphRec[gid]=[[],[]];
+  const cd=S.chartData[gid];
+  if(cd) cd.datasets.forEach(d=>d.data.length=0);
+}
+function setGraphX(gid, v){
+  const g=_graph(gid); if(!g) return;
+  g.x=v;
+  resetGraphData(gid); clearRoi();
+  createGraphChart(g); saveWorkspace();
+  log(`x축: ${v==='time'?'시간':gvar(v).label}`,'sys');
+}
+function setGraphY(gid, which, v){
+  const g=_graph(gid); if(!g) return;
+  if(which===0) g.y=v; else g.y2=v;
+  resetGraphData(gid); clearRoi();
+  createGraphChart(g); saveWorkspace();
+  log(`${which===0?'y축':'우측 y축'}: ${gvar(v).label}`,'sys');
+}
+function _varMenuItems(cur, onPick, extra){
+  const items=[...(extra||[])];
+  items.push({group:true,t:'센서 변수'});
+  _xyVarOptions(false).forEach(o=>{
+    items.push({t:`${o.label}${cur===o.v?'  ✓':''}`, f:()=>onPick(o.v)});
+  });
+  return items;
+}
+function axisMenuX(gid, ev){
+  ev.stopPropagation();
+  if(S.recording){ roiToast('수집 중에는 변경할 수 없습니다', ev.currentTarget); return; }
+  const g=_graph(gid); if(!g) return;
+  const items=[{group:true,t:'시간'},
+    {t:`시간 (s)${g.x==='time'?'  ✓':''}`, f:()=>setGraphX(gid,'time')},
+    ..._varMenuItems(g.x, v=>setGraphX(gid,v))];
+  const r=ev.currentTarget.getBoundingClientRect();
+  _showMenuAt('x축 변수', items, r.left, r.top-8-Math.min(items.length,8)*36);
+}
+function axisMenuY(gid, ev){
+  ev.stopPropagation();
+  if(S.recording){ roiToast('수집 중에는 변경할 수 없습니다', ev.currentTarget); return; }
+  const g=_graph(gid); if(!g) return;
+  const r=ev.currentTarget.getBoundingClientRect();
+  _showMenuAt('y축 변수', _varMenuItems(g.y, v=>setGraphY(gid,0,v)), r.right+6, r.top);
+}
+function axisMenuY2(gid, ev){
+  ev.stopPropagation();
+  if(S.recording){ roiToast('수집 중에는 변경할 수 없습니다', ev.currentTarget); return; }
+  const g=_graph(gid); if(!g) return;
+  const extra=[{t:'우측 y축 제거', f:()=>{ g.y2=null; resetGraphData(gid); clearRoi(); createGraphChart(g); saveWorkspace(); }}];
+  const r=ev.currentTarget.getBoundingClientRect();
+  _showMenuAt('우측 y축 변수', _varMenuItems(g.y2, v=>setGraphY(gid,1,v), extra), r.left-266, r.top);
+}
+
+// ── ⊕ 메뉴: Y축 추가 / 그래프 영역 추가 (D-2) ──
+function graphPlusMenu(gid, ev){
+  if(S.recording){ roiToast('수집 중에는 변경할 수 없습니다', ev.currentTarget); return; }
+  const g=_graph(gid); if(!g) return;
+  const items=[];
+  if(!g.y2) items.push({t:'Y축 추가 (우측)', f:()=>{ g.y2=_firstActiveVar(); resetGraphData(gid); clearRoi(); createGraphChart(g); saveWorkspace(); }});
+  if(S.graphs.length<4) items.push({t:'그래프 영역 추가', f:()=>addGraph()});
+  if(!items.length) items.push({t:'(추가 가능한 항목 없음)', f:()=>{}});
+  const r=ev.currentTarget.getBoundingClientRect();
+  _showMenuAt('그래프 추가', items, r.left-100, r.bottom+6);
+}
+function addGraph(){
+  if(S.graphs.length>=4){ roiToast('그래프는 최대 4개입니다'); return; }
+  const g=defaultGraph();
+  S.graphs.push(g);
+  S.layoutRows.push([g.gid]);
+  renderWorkspace();
+}
+function removeGraph(gid){
+  if(S.graphs.length<=1){ roiToast('마지막 그래프는 제거할 수 없습니다'); return; }
+  if(S.charts[gid]){ S.charts[gid].destroy(); delete S.charts[gid]; }
+  delete S.chartData[gid]; delete S.graphRec[gid]; delete S.seriesOff[gid];
+  if(S.roi.show && S.roi.sid===gid) clearRoi();
+  S.graphs=S.graphs.filter(g=>g.gid!==gid);
+  S.layoutRows=S.layoutRows.map(r=>r.filter(x=>x!==gid)).filter(r=>r.length);
+  const el=document.getElementById('gc-'+gid); if(el) el.remove();
+  renderWorkspace();
+}
+
+// ── D-3: 헤더 드래그 도킹 (pointer 기반, 1행 2열 마그네틱) ──
+let _dock=null;   // {gid, x0, y0, started, ghost, target}
+function attachDockDrag(header, gid){
+  if(!header || header.$dockAttached) return;
+  header.$dockAttached=true;
+  header.addEventListener('pointerdown',(e)=>{
+    if(e.button!==0) return;
+    if(e.target.closest && e.target.closest('button')) return;   // ⊕/✕ 클릭은 제외
+    _dock={gid, x0:e.clientX, y0:e.clientY, started:false, ghost:null, target:null};
+    header.setPointerCapture(e.pointerId);
+  });
+  header.addEventListener('pointermove',(e)=>{
+    if(!_dock||_dock.gid!==gid) return;
+    if(!_dock.started){
+      if(Math.hypot(e.clientX-_dock.x0, e.clientY-_dock.y0)<8) return;
+      _dock.started=true;
+      const gh=document.createElement('div');
+      gh.className='dock-ghost';
+      gh.textContent=document.getElementById('gt-'+gid)?.textContent||'그래프';
+      document.body.appendChild(gh);
+      _dock.ghost=gh;
+    }
+    _dock.ghost.style.left=(e.clientX+12)+'px';
+    _dock.ghost.style.top=(e.clientY+12)+'px';
+    // 드롭 존 판정: 단독 행 카드의 우측 절반
+    let target=null;
+    document.querySelectorAll('.chart-card.drop-hint').forEach(el=>el.classList.remove('drop-hint'));
+    for(const row of S.layoutRows){
+      if(row.length!==1 || row[0]===gid) continue;
+      const el=document.getElementById('gc-'+row[0]); if(!el) continue;
+      const r=el.getBoundingClientRect();
+      if(e.clientX>=r.left+r.width/2 && e.clientX<=r.right && e.clientY>=r.top && e.clientY<=r.bottom){
+        target=row[0];
+        el.classList.add('drop-hint');
+        break;
+      }
+    }
+    _dock.target=target;
+  });
+  const finish=(e)=>{
+    if(!_dock||_dock.gid!==gid) return;
+    const d=_dock; _dock=null;
+    document.querySelectorAll('.chart-card.drop-hint').forEach(el=>el.classList.remove('drop-hint'));
+    if(d.ghost) d.ghost.remove();
+    if(!d.started) return;
+    if(d.target) dockInto(gid, d.target);
+    else undock(gid);
+  };
+  header.addEventListener('pointerup',finish);
+  header.addEventListener('pointercancel',finish);
+}
+function dockInto(gid, hostGid){
+  const hostRow=S.layoutRows.find(r=>r.length===1 && r[0]===hostGid);
+  if(!hostRow) return;
+  S.layoutRows=S.layoutRows.map(r=>r.filter(x=>x!==gid)).filter(r=>r.length);
+  const hr=S.layoutRows.find(r=>r[0]===hostGid && r.length===1);
+  if(hr) hr.push(gid); else S.layoutRows.push([gid]);
+  renderWorkspace();
+}
+function undock(gid){
+  const row=S.layoutRows.find(r=>r.includes(gid));
+  if(!row || row.length===1){ renderWorkspace(); return; }   // 이미 단독 행
+  const idx=S.layoutRows.indexOf(row);
+  S.layoutRows=S.layoutRows.map(r=>r.filter(x=>x!==gid)).filter(r=>r.length);
+  S.layoutRows.splice(Math.min(idx+1,S.layoutRows.length), 0, [gid]);
+  renderWorkspace();
+}
+
+// ── 수집 시작 검증: 그래프 변수의 센서 토글이 꺼져 있으면 차단 ──
+function validateGraphVarsBeforeStart(){
+  for(const g of S.graphs){
+    for(const v of [g.x, g.y, g.y2]){
+      if(!v || v==='time') continue;
+      const p=_parseVar(v);
+      if(!S.active.has(p.sid)){
+        const nm=SENSORS.find(s=>s.id===p.sid)?.name??p.sid;
+        log(`그래프가 '${nm}' 변수를 사용합니다. 토글을 켜거나 축 변수를 바꾸세요.`,'err');
+        return false;
+      }
+    }
+  }
+  return true;
 }
 
 // ═══════════════════════════════════════════════
@@ -948,31 +1166,8 @@ document.addEventListener('click',(e)=>{
   if(p && p.classList.contains('show') && !p.contains(e.target)) hideXyPop();
 });
 
-function xyReset(sid){
-  hideXyPop();
-  if(!S.chartCfg[sid]) return;
-  delete S.chartCfg[sid];
-  delete S.xyRecorded[sid];
-  clearRoi();
-  createChart(SENSORS.find(s=>s.id===sid));
-  log('시간축 차트로 복귀','sys');
-}
+// (r4-D: xyReset/validateXyBeforeStart 는 워크스페이스 모듈의 setGraphX/validateGraphVarsBeforeStart 로 대체)
 
-// 수집 시작 검증 (기능 5-6): XY 지정 변수의 센서 토글이 꺼져 있으면 시작 차단
-function validateXyBeforeStart(){
-  for(const cid of Object.keys(S.chartCfg)){
-    const c=S.chartCfg[cid];
-    if(!c || c.mode!=='xy' || !S.charts[cid]) continue;
-    for(const v of [c.x, c.y]){
-      if(!S.active.has(v.sid)){
-        const nm=SENSORS.find(s=>s.id===v.sid)?.name??v.sid;
-        log(`XY 차트가 '${nm}'를 사용합니다. 토글을 켜거나 XY 설정을 해제하세요.`,'err');
-        return false;
-      }
-    }
-  }
-  return true;
-}
 
 function colorVar(base,idx,total){
   if(total===1) return base;
@@ -988,44 +1183,43 @@ function lighten(hex,amt){
 // 데이터 푸시
 // ═══════════════════════════════════════════════
 function pushData(sid, values){
-  // 최신값 캐시 — XY 변수-변수 페어링 소스 (기능 5)
+  // 최신값 캐시 — 변수-변수 페어링 소스
   S.latest[sid]=values;
 
-  // 현재값 숫자 배지 — 연결/데모 중 항상 갱신 (라이브 리드아웃, MBL 관례)
-  values.forEach((v,i)=>{
-    const el=document.getElementById(`lvn-${sid}-${i}`);
-    if(el) el.textContent=typeof v==='number'?v.toFixed(2):v;
-  });
+  // r4-D: 현재값 배지는 좌측 패널 센서 목록 행에 표시 (연결/데모 중 항상 갱신)
+  const pb=document.getElementById('plv-'+sid);
+  if(pb) pb.textContent=values.map(v=>typeof v==='number'?v.toFixed(2):v).join(' · ');
 
-  // 차트·레코드는 수집(레코드) 중에만 진행 — 수집 시작 전 차트는 정지 상태 (MBL 관례)
+  // 차트·레코드는 수집(레코드) 중에만 진행 (MBL 관례)
   if(!S.recording) return;
 
   const now=new Date();
   const elapsed=S.recActualStart ? +((now-S.recActualStart)/1000).toFixed(2) : 0;
 
-  // ① 시간 모드 차트 append — R0: {x: elapsed_s, y: value} 포인트, 롤링 버퍼 유지
-  const cd=S.chartData[sid];
-  const cfg=S.chartCfg[sid];
-  if(cd && (!cfg || cfg.mode!=='xy')){
-    values.forEach((v,i)=>{if(cd.datasets[i]) cd.datasets[i].data.push({x:elapsed, y:v});});
-    cd.datasets.forEach(d=>{while(d.data.length>S.bufSize) d.data.shift();});
-    if(S.charts[sid]) S.charts[sid].update('none');
-  }
-
-  // ② XY 카드 페어링 (MBL 관례): y 샘플 도착 시 가장 최근 x 변수 값과 짝짓기
-  Object.keys(S.chartCfg).forEach(cid=>{
-    const c=S.chartCfg[cid];
-    if(!c || c.mode!=='xy' || !S.charts[cid]) return;
-    if(c.y.sid!==sid) return;
-    const y=values[c.y.axis];
-    const x=(c.x.sid===sid) ? values[c.x.axis] : (S.latest[c.x.sid]||[])[c.x.axis];
-    if(typeof x!=='number'||typeof y!=='number'||isNaN(x)||isNaN(y)) return;
-    const xcd=S.chartData[cid];
-    xcd.datasets[0].data.push({x, y});
-    while(xcd.datasets[0].data.length>S.bufSize) xcd.datasets[0].data.shift();
-    // 비롤링 XY 기록 — 내보내기·분석이 화면 버퍼 한계와 무관하게 정합 (E-2 전제)
-    (S.xyRecorded[cid]=S.xyRecorded[cid]||[]).push({t:elapsed, x, y});
-    S.charts[cid].update('none');
+  // r4-D: 그래프 라우팅 — 각 그래프의 y/y2 변수가 이 센서면 페어링해 append
+  S.graphs.forEach(g=>{
+    [g.y, g.y2].forEach((yv,k)=>{
+      if(!yv) return;
+      const Y=_parseVar(yv);
+      if(Y.sid!==sid) return;
+      const yval=values[Y.axis];
+      if(typeof yval!=='number'||isNaN(yval)) return;
+      let xval;
+      if(g.x==='time') xval=elapsed;
+      else{
+        const X=_parseVar(g.x);
+        xval=(X.sid===sid)?values[X.axis]:(S.latest[X.sid]||[])[X.axis];
+      }
+      if(typeof xval!=='number'||isNaN(xval)) return;
+      const cd=S.chartData[g.gid];
+      if(cd&&cd.datasets[k]){
+        cd.datasets[k].data.push({x:xval,y:yval});
+        while(cd.datasets[k].data.length>S.bufSize) cd.datasets[k].data.shift();
+      }
+      // 비롤링 기록 — 내보내기·분석이 화면 버퍼 한계와 무관하게 정합 (E-2 전제)
+      (S.graphRec[g.gid]=S.graphRec[g.gid]||[[],[]])[k].push({t:elapsed, x:xval, y:yval});
+      if(S.charts[g.gid]) S.charts[g.gid].update('none');
+    });
   });
 
   // 레코드 저장
@@ -1052,13 +1246,14 @@ function pushData(sid, values){
   }
 }
 
-// 모든 차트 비우기 (수집 시작·데이터 초기화 시)
+// 모든 그래프 비우기 (수집 시작·데이터 초기화 시)
 function resetCharts(){
-  Object.keys(S.chartData).forEach(id=>{
-    const cd=S.chartData[id];
+  Object.keys(S.chartData).forEach(gid=>{
+    const cd=S.chartData[gid];
     cd.datasets.forEach(d=>d.data.length=0);
-    if(S.charts[id]) S.charts[id].update('none');
+    if(S.charts[gid]) S.charts[gid].update('none');
   });
+  Object.keys(S.graphRec).forEach(k=>S.graphRec[k]=[[],[]]);
 }
 
 // ═══════════════════════════════════════════════
@@ -1070,41 +1265,38 @@ function resetCharts(){
 // B-3: 사각형 박스 ROI — [x1,x2]×[y1,y2] (y 단위는 선택한 차트의 y축 기준)
 S.roi={show:false,sid:null,x1:0,x2:0,y1:0,y2:0};
 S.roiHintShown=false;   // 1회성 힌트 (세션 단위)
-S.chartCfg={};          // {sid:{mode:'time'|'xy', ...}} — XY 변수 지정 (기능 5)
-S.xyRecorded={};        // {sid:[{t,x,y}...]} — XY 비롤링 기록 (기능 5)
+S.graphs=[];            // r4-D: 그래프 정의 [{gid,x,y,y2}]
+S.layoutRows=[];        // r4-D: 워크스페이스 행 배치 [[gid],[gid,gid]]
+S.graphRec={};          // {gid:[[{t,x,y}...],[...]]} — 그래프별 비롤링 기록 (내보내기·분석 소스)
 S.latest={};            // {sid:[v...]} — 각 센서 최신값 캐시 (XY 페어링 소스)
 S.seriesOff={};         // {sid:Set(axisIdx)} — 꺼진 성분 (B-2: 분석·내보내기에서 제외)
 
-// ── B-2: 시리즈(성분) 토글 — 꺼진 성분은 표시·분석·내보내기 전체에서 제외 ──
-function _offSet(sid){ return S.seriesOff[sid]||new Set(); }
-function toggleSeries(sid, i){
-  const off=(S.seriesOff[sid]=S.seriesOff[sid]||new Set());
-  off.has(i)?off.delete(i):off.add(i);
-  applySeriesVisibility(sid);
-  renderSeriesToggles(sid);
-  updateAxisChips(sid);                            // y칩의 기호 나열 갱신 (QA r3-2)
-  if(S.roi.show && S.roi.sid===sid) clearRoi();   // 선택 데이터 구성이 바뀌므로 해제
+// ── B-2/r4: 시리즈(성분) 토글 — 그래프의 y/y2 시리즈 단위, 꺼진 시리즈는 분석·내보내기 제외 ──
+function _offSet(gid){ return S.seriesOff[gid]||new Set(); }
+function toggleSeries(gid, k){
+  const off=(S.seriesOff[gid]=S.seriesOff[gid]||new Set());
+  off.has(k)?off.delete(k):off.add(k);
+  applySeriesVisibility(gid);
+  renderSeriesToggles(gid);
+  if(S.roi.show && S.roi.sid===gid) clearRoi();   // 선택 데이터 구성이 바뀌므로 해제
 }
-function applySeriesVisibility(sid){
-  const cd=S.chartData[sid]; const ch=S.charts[sid];
-  const cfg=S.chartCfg[sid];
-  if(cd && (!cfg||cfg.mode!=='xy')){
-    const off=_offSet(sid);
-    cd.datasets.forEach((d,i)=>d.hidden=off.has(i));
-  }
+function applySeriesVisibility(gid){
+  const cd=S.chartData[gid]; const ch=S.charts[gid];
+  if(cd){ const off=_offSet(gid); cd.datasets.forEach((d,k)=>d.hidden=off.has(k)); }
   if(ch) ch.update('none');
 }
-function renderSeriesToggles(sid){
-  const el=document.getElementById('sr-'+sid); if(!el) return;
-  const cfg=S.chartCfg[sid];
-  const s=SENSORS.find(t=>t.id===sid);
-  if((cfg&&cfg.mode==='xy') || s.axes.length<2){ el.style.display='none'; return; }
+function renderSeriesToggles(gid){
+  const el=document.getElementById('sr-'+gid); if(!el) return;
+  const g=_graph(gid); if(!g){ el.style.display='none'; return; }
+  const sers=[gvar(g.y), g.y2?gvar(g.y2):null].filter(Boolean);
+  if(sers.length<2){ el.style.display='none'; return; }
   el.style.display='';
-  const off=_offSet(sid);
-  el.innerHTML=s.axes.map((ax,i)=>`
-    <label class="st-item${off.has(i)?' off':''}" style="color:${colorVar(s.color,i,s.axes.length)}">
-      <input type="checkbox" ${off.has(i)?'':'checked'} onchange="toggleSeries('${sid}',${i})">${ax}
-    </label>`).join('');
+  const off=_offSet(gid);
+  el.innerHTML=sers.map((v,k)=>{
+    const color=SENSORS.find(t=>t.id===v.sid)?.color||'#3d7eff';
+    return `<label class="st-item${off.has(k)?' off':''}" style="color:${color}">`+
+      `<input type="checkbox" ${off.has(k)?'':'checked'} onchange="toggleSeries('${gid}',${k})">${v.label}</label>`;
+  }).join('');
 }
 let _roiDrag=null;      // {sid,x0} 드래그 진행 상태
 
@@ -1239,36 +1431,32 @@ function localSlope(pts, idx, k=3){
 }
 
 // ── 분석 대상 데이터 (E-3: 내보내기와 동일 스코프 — 그 차트의 변수·ROI) ──
-function analysisSeries(sid){
-  const cfg=S.chartCfg[sid];
-  if(cfg&&cfg.mode==='xy') return [{idx:0,label:cfg.yLabel,unit:cfg.yUnit||'',xUnit:cfg.xUnit||''}];
-  const s=SENSORS.find(x=>x.id===sid);
-  const off=_offSet(sid);   // B-2: 꺼진 성분은 분석 대상에서 제외
-  return s.axes.map((ax,i)=>({idx:i,label:ax,unit:s.unit||'',xUnit:'s'})).filter(su=>!off.has(su.idx));
+function analysisSeries(gid){
+  const g=_graph(gid); if(!g) return [];
+  const xU = g.x==='time' ? 's' : (gvar(g.x).unit||'');
+  const off=_offSet(gid);
+  const out=[];
+  [gvar(g.y), g.y2?gvar(g.y2):null].forEach((v,k)=>{
+    if(!v||off.has(k)) return;
+    out.push({idx:k, label:v.label, unit:v.unit||'', xUnit:xU});
+  });
+  return out;
 }
-// roiMode: null(전체) | 'box'(x·y 박스 — 내보내기·피팅) | 'x'(x구간만 — 적분, B-3 규칙)
-function analysisPoints(sid, seriesIdx, roiMode){
-  const cfg=S.chartCfg[sid];
+// roiMode: null(전체) | 'box'(x·y 박스 — 내보내기·피팅) | 'x'(x구간만 — 적분)
+function analysisPoints(gid, seriesIdx, roiMode){
+  const rec=(S.graphRec[gid]||[])[seriesIdx]||[];
   const useRoi=!!roiMode && S.roi.show;
   const box=useRoi?_roiBox():null;
-  const hasY=useRoi && roiMode==='box';
-  if(cfg&&cfg.mode==='xy'){
-    let rows=S.xyRecorded[sid]||[];
-    if(box) rows=rows.filter(r=>r.x>=box.x1&&r.x<=box.x2);
-    if(hasY) rows=rows.filter(r=>r.y>=box.y1&&r.y<=box.y2);
-    return rows.map(r=>({x:r.x,y:r.y})).sort((a,b)=>a.x-b.x);
-  }
-  const s=SENSORS.find(x=>x.id===sid);
-  let rows=S.recorded.filter(r=>r.sensor===s.name);
-  if(box) rows=rows.filter(r=>r.elapsed_s>=box.x1&&r.elapsed_s<=box.x2);
-  const ax=s.axes[seriesIdx];
-  let pts=rows.map(r=>({x:r.elapsed_s,y:+r[ax]})).filter(p=>isFinite(p.y));
+  // D-4: ROI의 y범위는 주 y축(좌) 기준 — y2 시리즈는 x범위만 적용
+  const hasY=useRoi && roiMode==='box' && seriesIdx===0;
+  let pts=rec.map(r=>({x:r.x,y:r.y}));
+  if(box) pts=pts.filter(p=>p.x>=box.x1&&p.x<=box.x2);
   if(hasY) pts=pts.filter(p=>p.y>=box.y1&&p.y<=box.y2);
-  return pts;
+  return pts.sort((a,b)=>a.x-b.x);
 }
-// 박스 내부 점 수 (메뉴 헤더 표기용 — 전 시리즈 합)
-function _roiPointCount(sid){
-  return analysisSeries(sid).reduce((n,su)=>n+analysisPoints(sid,su.idx,'box').length, 0);
+// 박스 내부 점 수 (메뉴 헤더 표기용)
+function _roiPointCount(gid){
+  return analysisSeries(gid).reduce((n,su)=>n+analysisPoints(gid,su.idx,'box').length, 0);
 }
 
 // ── 분석 결과 행 ──
@@ -1354,7 +1542,7 @@ function tangentMove(sid, px, py){
   if(!best) return;
   const series=cd.datasets[best.di].data;
   const slope=localSlope(series, best.i, 3);        // ±3점 국소 1차 회귀
-  const su=analysisSeries(sid)[best.di]||analysisSeries(sid)[0];
+  const su=analysisSeries(sid).find(x=>x.idx===best.di)||{unit:'',xUnit:''};
   ch.$tan={x:best.p.x, y:best.p.y, slope, di:best.di,
            label:`(${sig(best.p.x)}, ${sig(best.p.y)})  dy/dx = ${sig(slope)} ${su.unit&&su.xUnit?`${su.unit}/${su.xUnit}`:''}`};
   ch.update('none');
@@ -1612,7 +1800,7 @@ function _pxInRoi(chart, px, py){
          py>=Math.min(ya,yb) && py<=Math.max(ya,yb);
 }
 
-// 각 차트 캔버스에 드래그·우클릭·롱프레스 핸들러 부착 (rebuildCharts에서 호출)
+// 각 그래프 캔버스에 드래그·우클릭·롱프레스 핸들러 부착 (renderWorkspace에서 호출)
 function attachRoiDrag(canvas, sid){
   let longPressTimer=null, longPressFired=false;
 
@@ -1708,35 +1896,26 @@ function _redrawAllCharts(){
   Object.values(S.charts).forEach(c=>c.update('none'));
 }
 
-// ── 차트 스코프 데이터 (E-2): 그 차트에 할당된 변수만, 토글 상태 무관 ──
-// box: null(전체) | {x1,x2}(x구간만 — 적분용) | {x1,x2,y1,y2}(사각 박스, B-3)
-// 시간 모드: 해당 센서의 축 컬럼. 박스의 y범위 밖 값은 빈 칸, 전 컬럼 빈 행은 제외.
-function chartScopeRows(sid, box){
-  const cfg=S.chartCfg[sid];
-  const hasY = box && box.y1!==undefined && box.y1!==null;
-  if(cfg && cfg.mode==='xy'){
-    let rows=(S.xyRecorded[sid]||[]);
-    if(box) rows=rows.filter(r=>r.x>=box.x1 && r.x<=box.x2);
-    if(hasY) rows=rows.filter(r=>r.y>=box.y1 && r.y<=box.y2);
-    return rows.map(r=>({elapsed_s:r.t, [cfg.xLabel]:r.x, [cfg.yLabel]:r.y}));
-  }
-  const sensor=SENSORS.find(s=>s.id===sid);
-  const off=_offSet(sid);   // B-2: 꺼진 성분 컬럼은 내보내기에서 제외
-  let rows=S.recorded.filter(r=>r.sensor===(sensor?.name??sid));
-  if(box) rows=rows.filter(r=>r.elapsed_s>=box.x1 && r.elapsed_s<=box.x2);
-  const out=[];
-  rows.forEach(r=>{
-    const o={timestamp:r.timestamp, elapsed_s:r.elapsed_s};
-    let any=false;
-    sensor?.axes.forEach((ax,i)=>{
-      if(off.has(i)) return;
-      const v=r[ax];
-      if(hasY && typeof v==='number' && (v<box.y1||v>box.y2)){ o[ax]=''; }   // 박스 밖 → 빈 칸
-      else { o[ax]=v; if(v!==''&&v!==undefined) any=true; }
+// ── 차트 스코프 데이터 (E-2): 그 그래프에 할당된 변수만, 토글 상태 무관 ──
+// box: null(전체) | {x1,x2,y1,y2}(사각 박스). y범위 필터는 주 y축 시리즈에만 적용 (D-4).
+function chartScopeRows(gid, box){
+  const g=_graph(gid); if(!g) return [];
+  const hasYBox = box && box.y1!==undefined && box.y1!==null;
+  const xSym = g.x==='time' ? null : gvar(g.x).label;
+  const off=_offSet(gid);
+  const sers=[{k:0,v:gvar(g.y)}, ...(g.y2?[{k:1,v:gvar(g.y2)}]:[])].filter(se=>!off.has(se.k));
+  const rows=[];
+  sers.forEach(se=>{
+    ((S.graphRec[gid]||[])[se.k]||[]).forEach(r=>{
+      if(box && (r.x<box.x1||r.x>box.x2)) return;
+      if(hasYBox && se.k===0 && (r.y<box.y1||r.y>box.y2)) return;
+      const o={elapsed_s:r.t};
+      if(xSym) o[xSym]=r.x;
+      o[se.v.label]=r.y;
+      rows.push(o);
     });
-    if(any) out.push(o);
   });
-  return out;
+  return rows.sort((a,b)=>a.elapsed_s-b.elapsed_s);
 }
 
 function _roiBox(){ return S.roi.show ? {x1:S.roi.x1,x2:S.roi.x2,y1:S.roi.y1,y2:S.roi.y2} : null; }
@@ -1745,22 +1924,22 @@ function _roiRows(){  // 우클릭 메뉴 요약용 — ROI를 잡은 차트 스
   return sid ? chartScopeRows(sid, _roiBox()) : [];
 }
 
-// 차트 컨텍스트 내보내기 (E-2, B-3: 박스 내부 점만 — 시리즈별 컬럼, 박스 밖 값은 빈 칸)
-function exportChartScope(sid, useRoi, xlsx){
-  const cfg=S.chartCfg[sid];
-  const isXY=cfg && cfg.mode==='xy';
-  const rows=chartScopeRows(sid, useRoi?_roiBox():null);
+// 차트 컨텍스트 내보내기 (E-2, B-3: 박스 내부 점만)
+function exportChartScope(gid, useRoi, xlsx){
+  const g=_graph(gid); if(!g) return;
+  const rows=chartScopeRows(gid, useRoi?_roiBox():null);
   if(!rows.length){log('내보낼 데이터가 없습니다.','err');return;}
+  const Y=gvar(g.y), Y2=g.y2?gvar(g.y2):null;
+  const xName=g.x==='time'?'t':gvar(g.x).label;
   const extra={
     export_scope:'chart',
-    chart_vars: isXY ? `x=${cfg.xLabel}, y=${cfg.yLabel}` : (SENSORS.find(s=>s.id===sid)?.name??sid),
+    chart_vars:`x=${xName}, y=${Y.label}${Y2?', y2='+Y2.label:''}`,
   };
   if(useRoi){
     extra.roi_x=`[${sig(S.roi.x1)}, ${sig(S.roi.x2)}]`;
-    extra.roi_y=`[${sig(S.roi.y1)}, ${sig(S.roi.y2)}]`;
+    extra.roi_y=`[${sig(S.roi.y1)}, ${sig(S.roi.y2)}]`+(Y2?' (주 y축 기준)':'');
   }
-  const base=isXY ? `${cfg.xLabel}-${cfg.yLabel}` : sid;
-  const name=`${base}${useRoi?'_roi':''}_${ts()}`.replace(/[^\w가-힣.\-]/g,'_');
+  const name=`${Y.label}-vs-${xName}${useRoi?'_roi':''}_${ts()}`.replace(/[^\w가-힣.\-]/g,'_');
   exportData(rows, name, xlsx, extra);
   log(`${xlsx?'XLSX':'CSV'} 저장(차트 스코프): ${name} (${rows.length}행)`,'sys');
 }
@@ -1798,7 +1977,8 @@ function showCtxMenu(sid, cx, cy, fullRange=false){
   if(useRoi){
     const n=_roiPointCount(sid);
     // B-3: "x: 2.1~5.3 s · y: −0.4~0.8 · n점" 형식
-    head=`x: ${sig(S.roi.x1,3)}~${sig(S.roi.x2,3)} · y: ${sig(S.roi.y1,3)}~${sig(S.roi.y2,3)} · ${n}점`;
+    const gY2=_graph(sid)&&_graph(sid).y2;
+    head=`x: ${sig(S.roi.x1,3)}~${sig(S.roi.x2,3)} · y: ${sig(S.roi.y1,3)}~${sig(S.roi.y2,3)} · ${n}점${gY2?' · y범위는 주 y축 기준':''}`;
     items=[
       {t:'선택 영역 CSV 내보내기',        f:()=>exportChartScope(sid,true,false)},
       {t:'선택 영역 XLSX 내보내기',       f:()=>exportChartScope(sid,true,true)},
@@ -1816,95 +1996,8 @@ function showCtxMenu(sid, cx, cy, fullRange=false){
   _showMenuAt(head, items, cx, cy);
 }
 
-// ── B-1: 축 클릭 변수 선택 (SPARKvue 방식) ──
-function updateAxisChips(sid){
-  const cfg=S.chartCfg[sid];
-  const isXY=cfg&&cfg.mode==='xy';
-  const s=SENSORS.find(x=>x.id===sid);
-  const xc=document.getElementById('axx-'+sid);
-  const yc=document.getElementById('axy-'+sid);
-  if(xc) xc.textContent = isXY ? `${cfg.xLabel}${cfg.xUnit?` (${cfg.xUnit})`:''}` : '시간 (s)';
-  if(yc){
-    // QA r3-2: 가로 텍스트, "기호 (단위)"만 — 시간 모드는 켜진 성분 기호를 나열
-    if(isXY) yc.textContent=`${cfg.yLabel}${cfg.yUnit?` (${cfg.yUnit})`:''}`;
-    else {
-      const off=_offSet(sid);
-      const syms=s.axes.filter((a,i)=>!off.has(i));
-      yc.textContent=`${syms.length?syms.join('·'):'—'}${s.unit?` (${s.unit})`:''}`;
-    }
-  }
-}
-function _firstEnabledAxis(sid){
-  const s=SENSORS.find(x=>x.id===sid);
-  const off=S.seriesOff[sid]||new Set();
-  for(let i=0;i<s.axes.length;i++) if(!off.has(i)) return i;
-  return 0;
-}
-function axisSelectX(sid, v){
-  if(v==='time'){ xyReset(sid); updateAxisChips(sid); return; }
-  const x=_parseVar(v);
-  let y;
-  const cfg=S.chartCfg[sid];
-  if(cfg&&cfg.mode==='xy') y=cfg.y;
-  else {
-    const s=SENSORS.find(t=>t.id===sid);
-    const yi=_firstEnabledAxis(sid);
-    y={sid, axis:yi, label:s.axes[yi], unit:s.unit||''};   // 기호만 (QA r3-2)
-  }
-  S.chartCfg[sid]={mode:'xy', x, y, xLabel:x.label, yLabel:y.label, xUnit:x.unit, yUnit:y.unit};
-  S.xyRecorded[sid]=[];
-  clearRoi();
-  createChart(SENSORS.find(t=>t.id===sid));
-  log(`XY 설정: x=${x.label}, y=${y.label}`,'sys');
-}
-function axisSelectY(sid, v){
-  const y=_parseVar(v);
-  const cfg=S.chartCfg[sid];
-  if(!cfg||cfg.mode!=='xy') return;           // 시간 모드의 y는 시리즈 토글로 제어 (B-2)
-  S.chartCfg[sid]={...cfg, y, yLabel:y.label, yUnit:y.unit};
-  S.xyRecorded[sid]=[];
-  clearRoi();
-  createChart(SENSORS.find(t=>t.id===sid));
-  log(`XY y축 변경: ${y.label}`,'sys');
-}
-function axisMenuX(sid, ev){
-  ev.stopPropagation();
-  if(S.recording){ roiToast('수집 중에는 변경할 수 없습니다', ev.currentTarget); return; }
-  const cfg=S.chartCfg[sid];
-  const cur = cfg&&cfg.mode==='xy' ? `${cfg.x.sid}:${cfg.x.axis}` : 'time';
-  const items=[{group:true,t:'시간'},
-    {t:`시간 (s)${cur==='time'?'  ✓':''}`, f:()=>axisSelectX(sid,'time')},
-    {group:true,t:'센서 변수'}];
-  _xyVarOptions(false).forEach(o=>{
-    items.push({t:`${o.label}${cur===o.v?'  ✓':''}`, f:()=>axisSelectX(sid,o.v)});
-  });
-  const r=ev.currentTarget.getBoundingClientRect();
-  _showMenuAt('x축 변수', items, r.left, r.top-8-items.length*36);
-}
-function axisMenuY(sid, ev){
-  ev.stopPropagation();
-  if(S.recording){ roiToast('수집 중에는 변경할 수 없습니다', ev.currentTarget); return; }
-  const cfg=S.chartCfg[sid];
-  const isXY=cfg&&cfg.mode==='xy';
-  const items=[];
-  if(isXY){
-    const cur=`${cfg.y.sid}:${cfg.y.axis}`;
-    items.push({group:true,t:'y축 변수'});
-    _xyVarOptions(false).forEach(o=>{
-      items.push({t:`${o.label}${cur===o.v?'  ✓':''}`, f:()=>axisSelectY(sid,o.v)});
-    });
-  } else {
-    // 시간 모드: 시리즈(성분) 토글 목록 (B-2)
-    const s=SENSORS.find(t=>t.id===sid);
-    const off=S.seriesOff[sid]||new Set();
-    items.push({group:true,t:'표시 성분 (클릭=켜기/끄기)'});
-    s.axes.forEach((ax,i)=>{
-      items.push({t:`${off.has(i)?'☐':'☑'} ${ax}`, f:()=>toggleSeries(sid,i)});
-    });
-  }
-  const r=ev.currentTarget.getBoundingClientRect();
-  _showMenuAt('y축', items, r.right+6, r.top);
-}
+// (r4-D: 축 칩·변수 메뉴는 워크스페이스 모듈로 이동)
+
 document.addEventListener('click',(e)=>{
   const m=document.getElementById('ctx-menu');
   if(m && m.classList.contains('show') && !m.contains(e.target)) hideCtxMenu();
@@ -1923,12 +2016,12 @@ document.addEventListener('keydown',(e)=>{
   else clearRoi();
 });
 
-// 현재값 배지 리셋
+// 좌측 패널 현재값 배지 리셋 (r4-D)
 function resetLiveBadges(){
-  SENSORS.forEach(s=>s.axes.forEach((ax,i)=>{
-    const el=document.getElementById(`lvn-${s.id}-${i}`);
+  SENSORS.forEach(t=>{
+    const el=document.getElementById('plv-'+t.id);
     if(el) el.textContent='—';
-  }));
+  });
 }
 
 function updateExpRange(){
@@ -1955,7 +2048,7 @@ function toggleRecord(){
 
 function startRecording(){
   if(S.active.size===0){log('활성화된 센서가 없습니다.','err');return;}
-  if(!validateXyBeforeStart()) return;   // 기능 5-6: XY 변수 센서 토글 검증
+  if(!validateGraphVarsBeforeStart()) return;   // r4-D: 그래프 변수 센서 토글 검증
   const delay = S.trigStart ? parseInt(document.getElementById('ts-val').value)*1000 : 0;
   const autoStop = S.trigEnd ? parseInt(document.getElementById('te-val').value)*1000 : 0;
 
@@ -1973,7 +2066,7 @@ function _doStart(autoStopMs){
   resetCharts();          // 수집 시작 시 차트를 비우고 0부터 새로 그림
   clearRoi();             // 이전 ROI 선택 해제
   clearAnalysis();        // 접선·적분·피팅 오버레이 제거
-  Object.keys(S.xyRecorded).forEach(k=>S.xyRecorded[k]=[]);   // XY 기록 재시작
+  // (그래프 기록은 resetCharts 안에서 재시작)
   S.recording=true;
   document.body.classList.add('recording');   // ⚙ 등 수집 중 비활성 표시
   S.recStart=Date.now(); S.recActualStart=new Date();
@@ -2025,7 +2118,6 @@ function clearData(){
     stopRecording();
   }
   S.recorded=[];
-  Object.keys(S.xyRecorded).forEach(k=>S.xyRecorded[k]=[]);
   resetCharts();
   clearRoi();
   clearAnalysis();        // 접선·피팅 곡선 등 분석 오버레이 포함 해제 (기능 3)
@@ -2409,7 +2501,6 @@ function runDemo(){
   ['imu_acc','imu_gyr','temp_hum','mic'].forEach(id=>{
     S.active.add(id); document.getElementById('si-'+id).classList.add('active');
   });
-  rebuildCharts();
   document.getElementById('conn-dot').classList.add('on');
   document.getElementById('conn-label').textContent='데모 모드';
   document.getElementById('rec-btn').disabled=false;
@@ -3107,6 +3198,8 @@ function switchTab(id){
 // 초기화
 // ═══════════════════════════════════════════════
 buildSensorList();
+loadWorkspace();
+renderWorkspace();
 S.myBoardId=(localStorage.getItem(MYBOARD_KEY)||'').match(/^[0-9A-F]{4}$/)?localStorage.getItem(MYBOARD_KEY):null;
 updateMyBoardBadge();
 
