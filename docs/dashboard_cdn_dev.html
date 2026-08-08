@@ -1057,24 +1057,41 @@ function axisMenuY(gid, ev){
   const r=ev.currentTarget.getBoundingClientRect();
   _showMenuAt('y축 변수', _varMenuItems(g.y, v=>setGraphY(gid,0,v)), r.right+6, r.top);
 }
+// 우측 y축 후보: 좌측 y와 같은 변수는 제외 (동일 곡선 겹침 방지)
+function _y2Options(gid){
+  const g=_graph(gid); if(!g) return [];
+  return _xyVarOptions(false).filter(o=>o.v!==g.y);
+}
 function axisMenuY2(gid, ev){
   ev.stopPropagation();
   if(S.recording){ roiToast('수집 중에는 변경할 수 없습니다', ev.currentTarget); return; }
   const g=_graph(gid); if(!g) return;
-  const extra=[{t:'우측 y축 제거', f:()=>{ g.y2=null; resetGraphData(gid); clearRoi(); createGraphChart(g); saveWorkspace(); }}];
+  const items=[{t:'우측 y축 제거', f:()=>{ g.y2=null; resetGraphData(gid); clearRoi(); createGraphChart(g); saveWorkspace(); }},
+    {group:true,t:'센서 변수'}];
+  _y2Options(gid).forEach(o=>{
+    items.push({t:`${o.label}${g.y2===o.v?'  ✓':''}`, f:()=>setGraphY(gid,1,o.v)});
+  });
   const r=ev.currentTarget.getBoundingClientRect();
-  _showMenuAt('우측 y축 변수', _varMenuItems(g.y2, v=>setGraphY(gid,1,v), extra), r.left-266, r.top);
+  _showMenuAt('우측 y축 변수', items, r.left-266, r.top);
+}
+// ⊕ → Y축 추가: 곧바로 변수 선택 메뉴 (기본값으로 좌축과 같은 변수가 잡히는 문제 방지)
+function addY2Menu(gid, r){
+  const g=_graph(gid); if(!g) return;
+  const opts=_y2Options(gid);
+  if(!opts.length){ roiToast('추가할 다른 변수가 없습니다 — 센서를 더 켜세요'); return; }
+  const items=opts.map(o=>({t:o.label, f:()=>setGraphY(gid,1,o.v)}));
+  _showMenuAt('우측 y축 변수 선택', items, r.left-120, r.bottom+6);
 }
 
 // ── ⊕ 메뉴: Y축 추가 / 그래프 영역 추가 (D-2) ──
 function graphPlusMenu(gid, ev){
   if(S.recording){ roiToast('수집 중에는 변경할 수 없습니다', ev.currentTarget); return; }
   const g=_graph(gid); if(!g) return;
+  const r=ev.currentTarget.getBoundingClientRect();
   const items=[];
-  if(!g.y2) items.push({t:'Y축 추가 (우측)', f:()=>{ g.y2=_firstActiveVar(); resetGraphData(gid); clearRoi(); createGraphChart(g); saveWorkspace(); }});
+  if(!g.y2) items.push({t:'Y축 추가 (우측)…', f:()=>addY2Menu(gid, r)});
   if(S.graphs.length<4) items.push({t:'그래프 영역 추가', f:()=>addGraph()});
   if(!items.length) items.push({t:'(추가 가능한 항목 없음)', f:()=>{}});
-  const r=ev.currentTarget.getBoundingClientRect();
   _showMenuAt('그래프 추가', items, r.left-100, r.bottom+6);
 }
 function addGraph(){
