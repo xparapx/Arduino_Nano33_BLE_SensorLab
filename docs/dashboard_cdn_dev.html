@@ -165,6 +165,42 @@ header{display:flex;align-items:center;justify-content:space-between;padding:0 1
   .ctx-menu .cm-item{height:44px;}
 }
 
+/* ── 분석 툴바 (L-1·2 규격: 32px 버튼·4px 간격·반투명+블러·호버 페이드) ── */
+.ana-toolbar{position:absolute;top:12px;right:16px;display:flex;flex-direction:column;gap:4px;
+  z-index:5;opacity:0;transition:opacity .18s;}
+.chart-card:hover .ana-toolbar{opacity:1;}
+@media (hover:none){.ana-toolbar{opacity:1;}}
+.ana-toolbar button{width:32px;height:32px;border-radius:8px;border:1px solid var(--border2);
+  background:color-mix(in srgb, var(--bg2) 80%, transparent);backdrop-filter:blur(6px);
+  color:var(--text2);cursor:pointer;display:flex;align-items:center;justify-content:center;
+  padding:0;transition:all .14s;}
+.ana-toolbar button:hover{color:var(--text);border-color:var(--text3);}
+.ana-toolbar button.on{background:rgba(45,212,191,.16);border-color:var(--teal);color:var(--teal);}
+body.recording .ana-toolbar button{opacity:.4;cursor:not-allowed;}
+.ana-toolbar svg{width:15px;height:15px;}
+@media (max-width:480px){
+  .ana-toolbar{position:static;flex-direction:row;justify-content:flex-end;margin-top:6px;opacity:1;}
+}
+
+/* ── 분석 결과 접이식 행 (L-3) ── */
+.ana-result{border-top:1px solid var(--border);padding:0 13px;}
+.ana-result summary{cursor:pointer;font-size:11px;color:var(--text3);padding:7px 0;
+  list-style:none;display:flex;align-items:center;gap:8px;user-select:none;}
+.ana-result summary::-webkit-details-marker{display:none;}
+.ana-result summary::before{content:'▸';}
+.ana-result[open] summary::before{content:'▾';}
+.ar-tools{margin-left:auto;display:flex;gap:4px;}
+.ar-tools button{font-size:10px;padding:2px 8px;border-radius:5px;border:1px solid var(--border);
+  background:var(--bg3);color:var(--text2);cursor:pointer;font-family:inherit;}
+.ar-tools button:hover{color:var(--text);}
+.ar-body{padding:0 0 9px;}
+.ar-row{font-size:11.5px;color:var(--text2);padding:3px 0;line-height:1.55;}
+.ar-row b{color:var(--text);}
+.ar-val{font-family:'JetBrains Mono','Fira Code',monospace;color:var(--teal);font-weight:600;}
+.ar-eq{font-family:'JetBrains Mono','Fira Code',monospace;color:var(--amber);}
+.ar-unit{color:var(--text3);}
+.ar-rng{color:var(--text3);font-size:10px;}
+
 /* ── XY 설정 (⚙ 버튼 + 앵커 팝오버, L-6) ── */
 .xy-gear{width:26px;height:26px;flex-shrink:0;border-radius:7px;border:1px solid var(--border);
   background:var(--bg3);color:var(--text3);cursor:pointer;display:flex;align-items:center;
@@ -784,7 +820,32 @@ function rebuildCharts(){
           </button>
         </div>
       </div>
-      <div class="chart-body"><canvas id="cv-${s.id}" height="${h}"></canvas></div>`;
+      <div class="chart-body">
+        <canvas id="cv-${s.id}" height="${h}"></canvas>
+        <div class="ana-toolbar" id="tb-${s.id}">
+          <button data-tool="fitview" title="크기 최적화 (재클릭: 자동 복귀)" onclick="anaFitView('${s.id}',this)">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 2H2v4M10 2h4v4M6 14H2v-4M10 14h4v-4"/></svg>
+          </button>
+          <button data-tool="tangent" title="접선(기울기)" onclick="anaTangentToggle('${s.id}',this)">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 13L13 3.5M3 13h10"/><circle cx="8" cy="8.2" r="1.3"/></svg>
+          </button>
+          <button data-tool="integral" title="면적(적분) — 구간 드래그 필요" onclick="anaIntegral('${s.id}')">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M10.5 2.2c-2 0-2.5 1.4-2.5 3.4v4.8c0 2-.5 3.4-2.5 3.4"/><path d="M4.5 13.8h.01M11.5 2.2h.01"/></svg>
+          </button>
+          <button data-tool="fit" title="구간 피팅 — 구간 드래그 필요" onclick="anaFitOpen('${s.id}')">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 13c3-1 4-7 6-7s3 5 6 4"/><path d="M2 13h12" stroke-dasharray="2 2"/></svg>
+          </button>
+        </div>
+      </div>
+      <details class="ana-result" id="ar-${s.id}">
+        <summary>분석 결과
+          <span class="ar-tools">
+            <button onclick="event.stopPropagation();event.preventDefault();anaCopy('${s.id}')">복사</button>
+            <button onclick="event.stopPropagation();event.preventDefault();anaClearChart('${s.id}')">지우기</button>
+          </span>
+        </summary>
+        <div class="ar-body" id="arb-${s.id}"></div>
+      </details>`;
     grid.appendChild(card);
     createChart(s);
   });
@@ -1077,10 +1138,427 @@ S.xyRecorded={};        // {sid:[{t,x,y}...]} — XY 비롤링 기록 (기능 5)
 S.latest={};            // {sid:[v...]} — 각 센서 최신값 캐시 (XY 페어링 소스)
 let _roiDrag=null;      // {sid,x0} 드래그 진행 상태
 
-// 분석 도구 훅 (기능 6에서 본구현으로 대체)
-function anaIntegral(sid){ log('분석 도구가 로드되지 않았습니다.','err'); }
-function anaFitOpen(sid){ log('분석 도구가 로드되지 않았습니다.','err'); }
-function clearAnalysis(){}
+// ═══════════════════════════════════════════════
+// 분석 수학 (기능 6) — 외부 라이브러리 없이 직접 구현
+// ═══════════════════════════════════════════════
+function sig(v,d=4){                       // 유효숫자 d자리
+  if(!isFinite(v)) return String(v);
+  if(v===0) return '0';
+  return Number(v.toPrecision(d)).toString();
+}
+function gaussSolve(A,b){                  // 부분 피벗 가우스 소거
+  const n=b.length;
+  const M=A.map((row,i)=>[...row,b[i]]);
+  for(let c=0;c<n;c++){
+    let piv=c;
+    for(let r=c+1;r<n;r++) if(Math.abs(M[r][c])>Math.abs(M[piv][c])) piv=r;
+    if(Math.abs(M[piv][c])<1e-12) return null;
+    [M[c],M[piv]]=[M[piv],M[c]];
+    for(let r=0;r<n;r++){
+      if(r===c) continue;
+      const f=M[r][c]/M[c][c];
+      for(let k=c;k<=n;k++) M[r][k]-=f*M[c][k];
+    }
+  }
+  return M.map((row,i)=>row[n]/row[i][i]);
+}
+function fitLinear(pts){                   // y = a·x + b (최소제곱 닫힌해)
+  const n=pts.length; if(n<2) return null;
+  let sx=0,sy=0,sxx=0,sxy=0;
+  for(const p of pts){sx+=p.x;sy+=p.y;sxx+=p.x*p.x;sxy+=p.x*p.y;}
+  const d=n*sxx-sx*sx; if(Math.abs(d)<1e-12) return null;
+  const a=(n*sxy-sx*sy)/d, b=(sy-a*sx)/n;
+  return {params:{'기울기 a':a,'절편 b':b}, fn:x=>a*x+b, eq:`y = ${sig(a)}·x + ${sig(b)}`};
+}
+function fitPoly(pts,deg){                 // y = Σaᵢxⁱ (정규방정식)
+  if(pts.length<deg+1) return null;
+  const n=deg+1;
+  const pow=new Array(2*deg+1).fill(0), B=new Array(n).fill(0);
+  for(const p of pts){
+    let xp=1; for(let k=0;k<=2*deg;k++){pow[k]+=xp; xp*=p.x;}
+    let xq=1; for(let k=0;k<=deg;k++){B[k]+=xq*p.y; xq*=p.x;}
+  }
+  const A=Array.from({length:n},(_,i)=>Array.from({length:n},(_,j)=>pow[i+j]));
+  const c=gaussSolve(A,B); if(!c) return null;
+  const params={}; c.forEach((v,i)=>params['a'+i]=v);
+  return {params, fn:x=>c.reduce((s,ci,i)=>s+ci*Math.pow(x,i),0),
+          eq:'y = '+c.map((ci,i)=>`${sig(ci)}${i?('·x'+(i>1?'^'+i:'')):''}`).reverse().join(' + ')};
+}
+// Levenberg-Marquardt (수치 야코비안) — 지수/거듭제곱/사인 공용
+function lmFit(pts, model, p0, iters=200){
+  let p=p0.slice(), lambda=1e-3;
+  const m=p.length;
+  const res=pp=>pts.map(pt=>pt.y-model(pt.x,pp));
+  const sse=rr=>rr.reduce((s,r)=>s+r*r,0);
+  let r=res(p), cost=sse(r);
+  for(let it=0;it<iters;it++){
+    const J=pts.map(pt=>p.map((pj,j)=>{
+      const h=Math.max(1e-7,Math.abs(pj)*1e-6);
+      const p2=p.slice(); p2[j]+=h;
+      return (model(pt.x,p2)-model(pt.x,p))/h;
+    }));
+    const A=Array.from({length:m},()=>new Array(m).fill(0));
+    const g=new Array(m).fill(0);
+    for(let i=0;i<pts.length;i++)
+      for(let j=0;j<m;j++){
+        g[j]+=J[i][j]*r[i];
+        for(let k=0;k<m;k++) A[j][k]+=J[i][j]*J[i][k];
+      }
+    const Ad=A.map((row,j)=>row.map((v,k)=>j===k?v*(1+lambda):v));
+    const dp=gaussSolve(Ad,g);
+    if(!dp) break;
+    const p2=p.map((v,j)=>v+dp[j]);
+    const r2=res(p2), c2=sse(r2);
+    if(c2<cost){
+      p=p2; r=r2;
+      const done=Math.abs(cost-c2)<1e-12*(1+cost);
+      cost=c2; lambda=Math.max(1e-9,lambda*0.5);
+      if(done) break;
+    } else { lambda*=3; if(lambda>1e9) break; }
+  }
+  return {p, cost};
+}
+function fitExp(pts){                      // y = A·e^(k·x) — ln 선형화 초기값 → GN/LM 정련
+  const pos=pts.filter(p=>p.y>0); if(pos.length<3) return null;
+  const lin=fitLinear(pos.map(p=>({x:p.x,y:Math.log(p.y)}))); if(!lin) return null;
+  const A0=Math.exp(lin.params['절편 b']), k0=lin.params['기울기 a'];
+  const r=lmFit(pts,(x,p)=>p[0]*Math.exp(p[1]*x),[A0,k0]);
+  const [A,k]=r.p;
+  return {params:{A,k}, fn:x=>A*Math.exp(k*x), eq:`y = ${sig(A)}·e^(${sig(k)}·x)`};
+}
+function fitPower(pts){                    // y = A·x^n — log-log 선형화 → LM 정련
+  const pp=pts.filter(p=>p.x>0&&p.y>0); if(pp.length<3) return null;
+  const lin=fitLinear(pp.map(p=>({x:Math.log(p.x),y:Math.log(p.y)}))); if(!lin) return null;
+  const A0=Math.exp(lin.params['절편 b']), n0=lin.params['기울기 a'];
+  const r=lmFit(pp,(x,p)=>p[0]*Math.pow(x,p[1]),[A0,n0]);
+  const [A,n]=r.p;
+  return {params:{A,n}, fn:x=>A*Math.pow(x,n), eq:`y = ${sig(A)}·x^${sig(n)}`};
+}
+function fitSine(pts){                     // y = A·sin(ω·x+φ)+C — 초기값 추정 → LM
+  if(pts.length<6) return null;
+  const ys=pts.map(p=>p.y);
+  const C0=ys.reduce((a,b)=>a+b,0)/ys.length;
+  const A0=Math.sqrt(2*ys.reduce((s,y)=>s+(y-C0)**2,0)/ys.length)||1;
+  let cross=0;
+  for(let i=1;i<ys.length;i++) if((ys[i-1]-C0)*(ys[i]-C0)<0) cross++;
+  const span=pts[pts.length-1].x-pts[0].x;
+  const w0=cross>0 ? Math.PI*cross/Math.max(span,1e-6) : 2*Math.PI/Math.max(span,1e-6);
+  const r=lmFit(pts,(x,p)=>p[0]*Math.sin(p[1]*x+p[2])+p[3],[A0,w0,0,C0],400);
+  const [A,w,ph,C]=r.p;
+  return {params:{A,'ω':w,'φ':ph,C}, fn:x=>A*Math.sin(w*x+ph)+C,
+          eq:`y = ${sig(A)}·sin(${sig(w)}·x + ${sig(ph)}) + ${sig(C)}`};
+}
+function fitStats(pts,fn){                 // R², 잔차 RMS
+  const n=pts.length;
+  const mean=pts.reduce((s,p)=>s+p.y,0)/n;
+  let ssres=0, sstot=0;
+  for(const p of pts){ const e=p.y-fn(p.x); ssres+=e*e; sstot+=(p.y-mean)**2; }
+  return {r2: sstot>0?1-ssres/sstot:1, rms: Math.sqrt(ssres/n)};
+}
+function trapz(pts){                       // 사다리꼴 적분 ∫y dx (x 오름차순)
+  let s=0;
+  for(let i=1;i<pts.length;i++) s+=(pts[i].x-pts[i-1].x)*(pts[i].y+pts[i-1].y)/2;
+  return s;
+}
+// 국소 1차 회귀 기울기 (접선용, ±k점)
+function localSlope(pts, idx, k=3){
+  const a=Math.max(0,idx-k), b=Math.min(pts.length-1,idx+k);
+  const seg=pts.slice(a,b+1);
+  const lin=fitLinear(seg);
+  return lin ? lin.params['기울기 a'] : 0;
+}
+
+// ── 분석 대상 데이터 (E-3: 내보내기와 동일 스코프 — 그 차트의 변수·ROI) ──
+function analysisSeries(sid){
+  const cfg=S.chartCfg[sid];
+  if(cfg&&cfg.mode==='xy') return [{idx:0,label:cfg.yLabel,unit:cfg.yUnit||'',xUnit:cfg.xUnit||''}];
+  const s=SENSORS.find(x=>x.id===sid);
+  return s.axes.map((ax,i)=>({idx:i,label:ax,unit:s.unit||'',xUnit:'s'}));
+}
+function analysisPoints(sid, seriesIdx, useRoi){
+  const cfg=S.chartCfg[sid];
+  const t1=useRoi?S.roi.t1:null, t2=useRoi?S.roi.t2:null;
+  if(cfg&&cfg.mode==='xy'){
+    let rows=S.xyRecorded[sid]||[];
+    if(useRoi) rows=rows.filter(r=>r.x>=t1&&r.x<=t2);
+    return rows.map(r=>({x:r.x,y:r.y})).sort((a,b)=>a.x-b.x);
+  }
+  const s=SENSORS.find(x=>x.id===sid);
+  let rows=S.recorded.filter(r=>r.sensor===s.name);
+  if(useRoi) rows=rows.filter(r=>r.elapsed_s>=t1&&r.elapsed_s<=t2);
+  const ax=s.axes[seriesIdx];
+  return rows.map(r=>({x:r.elapsed_s,y:+r[ax]})).filter(p=>isFinite(p.y));
+}
+
+// ── 분석 결과 행 ──
+function anaResult(sid, html, plain){
+  const det=document.getElementById('ar-'+sid);
+  const body=document.getElementById('arb-'+sid);
+  if(!det||!body) return;
+  const row=document.createElement('div');
+  row.className='ar-row';
+  row.innerHTML=html;
+  row.dataset.plain=plain||'';
+  body.appendChild(row);
+  det.open=true;                                     // 결과 생기면 자동 펼침
+}
+function anaCopy(sid){
+  const body=document.getElementById('arb-'+sid);
+  const txt=[...body.querySelectorAll('.ar-row')].map(r=>r.dataset.plain||r.textContent).join('\n');
+  if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(()=>log('분석 결과 복사됨','sys'));
+}
+function anaClearChart(sid){
+  const body=document.getElementById('arb-'+sid); if(body) body.innerHTML='';
+  const det=document.getElementById('ar-'+sid); if(det) det.open=false;
+  const ch=S.charts[sid];
+  if(ch){ delete ch.$tan; delete ch.$integral; delete ch.$fits; ch.update('none'); }
+}
+
+// ── 6-A 크기 최적화 ──
+function anaFitView(sid, btn){
+  const ch=S.charts[sid]; if(!ch) return;
+  if(S.recording){ log('수집 중에는 사용할 수 없습니다.','err'); return; }
+  if(ch.$fitview){                                  // 재클릭 → 자동 스케일 복귀
+    delete ch.options.scales.x.min; delete ch.options.scales.x.max;
+    if(ch.options.scales.y){ delete ch.options.scales.y.min; delete ch.options.scales.y.max; }
+    ch.$fitview=false; btn.classList.remove('on'); ch.update(); return;
+  }
+  const cd=S.chartData[sid];
+  let xmn=Infinity,xmx=-Infinity,ymn=Infinity,ymx=-Infinity,any=false;
+  cd.datasets.forEach(d=>d.data.forEach(p=>{any=true;
+    if(p.x<xmn)xmn=p.x; if(p.x>xmx)xmx=p.x; if(p.y<ymn)ymn=p.y; if(p.y>ymx)ymx=p.y;}));
+  if(!any){ log('데이터가 없습니다.','err'); return; }
+  const px=(xmx-xmn)*0.05||0.5, py=(ymx-ymn)*0.05||0.5;   // ±5% 패딩
+  ch.options.scales.x.min=xmn-px; ch.options.scales.x.max=xmx+px;
+  if(ch.options.scales.y){ ch.options.scales.y.min=ymn-py; ch.options.scales.y.max=ymx+py; }
+  ch.$fitview=true; btn.classList.add('on'); ch.update();
+}
+
+// ── 6-B 접선(기울기) ──
+S.tangentSid=null;
+function anaTangentToggle(sid, btn){
+  if(S.recording){ log('수집 중에는 사용할 수 없습니다.','err'); return; }
+  if(!_chartXRange(sid)){ log('데이터가 없습니다.','err'); return; }
+  if(S.tangentSid===sid){
+    S.tangentSid=null; btn.classList.remove('on');
+    const ch=S.charts[sid]; if(ch){ delete ch.$tan; ch.update('none'); }
+    return;
+  }
+  // 다른 차트에서 켜져 있으면 끔
+  if(S.tangentSid && S.charts[S.tangentSid]){
+    delete S.charts[S.tangentSid].$tan; S.charts[S.tangentSid].update('none');
+    const pb=document.querySelector(`#tb-${S.tangentSid} [data-tool="tangent"]`); if(pb) pb.classList.remove('on');
+  }
+  S.tangentSid=sid; btn.classList.add('on');
+  log('접선 도구: 차트 위에서 포인터를 움직이세요.','sys');
+}
+function tangentMove(sid, px, py){
+  if(S.tangentSid!==sid) return;
+  const ch=S.charts[sid]; if(!ch) return;
+  const cd=S.chartData[sid];
+  // 커서에 가장 가까운 데이터 점 (전 시리즈, 픽셀 거리)
+  let best=null;
+  cd.datasets.forEach((d,di)=>{
+    d.data.forEach((p,i)=>{
+      const dx=ch.scales.x.getPixelForValue(p.x)-px;
+      const yScale=ch.scales[d.yAxisID||'y']||ch.scales.y;
+      const dy=(yScale?yScale.getPixelForValue(p.y):0)-py;
+      const dist=dx*dx+dy*dy;
+      if(!best||dist<best.dist) best={dist,di,i,p};
+    });
+  });
+  if(!best) return;
+  const series=cd.datasets[best.di].data;
+  const slope=localSlope(series, best.i, 3);        // ±3점 국소 1차 회귀
+  const su=analysisSeries(sid)[best.di]||analysisSeries(sid)[0];
+  ch.$tan={x:best.p.x, y:best.p.y, slope, di:best.di,
+           label:`(${sig(best.p.x)}, ${sig(best.p.y)})  dy/dx = ${sig(slope)} ${su.unit&&su.xUnit?`${su.unit}/${su.xUnit}`:''}`};
+  ch.update('none');
+}
+
+// ── 6-C 면적(적분) — ROI 연동 ──
+function anaIntegral(sid){
+  if(S.recording){ log('수집 중에는 사용할 수 없습니다.','err'); return; }
+  if(!S.roi.show){ log('먼저 구간을 드래그하세요.','err'); return; }
+  const ch=S.charts[sid]; if(!ch) return;
+  const results=[];
+  analysisSeries(sid).forEach(su=>{
+    const pts=analysisPoints(sid, su.idx, true);
+    if(pts.length<2) return;
+    const v=trapz(pts);
+    const unit=su.unit&&su.xUnit?`${su.unit}·${su.xUnit}`:'';
+    results.push({label:su.label, val:v, unit, di:su.idx});
+    const plain=`∫${su.label} = ${sig(v)}${unit?` ${unit}`:''}  [${S.roi.t1.toFixed(2)} ~ ${S.roi.t2.toFixed(2)}]`;
+    anaResult(sid, `<b>∫ ${esc(su.label)}</b> = <span class="ar-val">${sig(v)}</span>${unit?` <span class="ar-unit">${esc(unit)}</span>`:''} <span class="ar-rng">(${S.roi.t1.toFixed(2)} ~ ${S.roi.t2.toFixed(2)})</span>`, plain);
+    log(plain,'sys');
+  });
+  if(!results.length){ log('선택 구간에 데이터가 없습니다.','err'); return; }
+  ch.$integral={t1:S.roi.t1, t2:S.roi.t2, series:results.map(r=>r.di)};
+  ch.update('none');
+}
+
+// ── 6-D 피팅 — ROI 연동, 모델 선택 대화상자 ──
+const FIT_MODELS=[
+  {id:'linear', name:'선형 y=a·x+b',          f:pts=>fitLinear(pts)},
+  {id:'poly2',  name:'2차 다항 y=a₂x²+a₁x+a₀', f:pts=>fitPoly(pts,2)},
+  {id:'poly3',  name:'3차 다항',               f:pts=>fitPoly(pts,3)},
+  {id:'exp',    name:'지수 y=A·e^(k·x)',       f:pts=>fitExp(pts)},
+  {id:'power',  name:'거듭제곱 y=A·x^n',       f:pts=>fitPower(pts)},
+  {id:'sine',   name:'사인 y=A·sin(ω·x+φ)+C',  f:pts=>fitSine(pts)},
+];
+function anaFitOpen(sid){
+  if(S.recording){ log('수집 중에는 사용할 수 없습니다.','err'); return; }
+  if(!S.roi.show){ log('먼저 구간을 드래그하세요.','err'); return; }
+  const pop=document.getElementById('xy-pop');    // 팝오버 컨테이너 재사용
+  const series=analysisSeries(sid);
+  pop.innerHTML=`
+    <div class="xp-title">구간 피팅 — ${S.roi.t1.toFixed(1)} ~ ${S.roi.t2.toFixed(1)}</div>
+    <label class="xp-lbl">모델</label>
+    <select id="fit-model" class="xp-sel">${FIT_MODELS.map(m=>`<option value="${m.id}">${esc(m.name)}</option>`).join('')}</select>
+    ${series.length>1?`<label class="xp-lbl">시리즈</label>
+    <select id="fit-series" class="xp-sel">${series.map(su=>`<option value="${su.idx}">${esc(su.label)}</option>`).join('')}</select>`:''}
+    <div class="xp-btns"><button class="btn primary" style="flex:1;" id="fit-run">피팅 실행</button></div>`;
+  pop.classList.add('show');
+  const card=document.getElementById('cc-'+sid);
+  const r=card?card.getBoundingClientRect():{left:innerWidth/2,top:innerHeight/2,width:0};
+  pop.style.left=Math.max(8,Math.min(innerWidth-260, r.left+r.width/2-120))+'px';
+  pop.style.top=Math.max(8,r.top+40)+'px';
+  document.getElementById('fit-run').onclick=()=>{
+    const mid=document.getElementById('fit-model').value;
+    const sIdx=series.length>1?+document.getElementById('fit-series').value:series[0].idx;
+    hideXyPop();
+    anaFitRun(sid, mid, sIdx);
+  };
+}
+function anaFitRun(sid, modelId, seriesIdx){
+  const model=FIT_MODELS.find(m=>m.id===modelId);
+  const su=analysisSeries(sid).find(s=>s.idx===seriesIdx);
+  const pts=analysisPoints(sid, seriesIdx, true);
+  if(pts.length<3){ log('선택 구간의 데이터가 부족합니다.','err'); return; }
+  const fit=model.f(pts);
+  if(!fit){ log(`피팅 실패: ${model.name} — 데이터가 모델 조건에 맞지 않습니다.`,'err'); return; }
+  const st=fitStats(pts, fit.fn);
+  const ch=S.charts[sid]; if(!ch) return;
+  (ch.$fits=ch.$fits||[]).push({fn:fit.fn, t1:S.roi.t1, t2:S.roi.t2});
+  ch.update('none');
+  const ptxt=Object.entries(fit.params).map(([k,v])=>`${k}=${sig(v)}`).join(', ');
+  const plain=`피팅[${model.name}] ${su.label}: ${fit.eq} | ${ptxt} | R²=${sig(st.r2)} RMS=${sig(st.rms)}`;
+  anaResult(sid,
+    `<b>ƒ ${esc(su.label)}</b> <span class="ar-eq">${esc(fit.eq)}</span><br>`+
+    `<span class="ar-unit">${esc(ptxt)}</span> · <b>R²=${sig(st.r2)}</b> · RMS=${sig(st.rms)}`, plain);
+  log(plain,'sys');
+}
+
+// ── 분석 오버레이 플러그인 (적분 채움·피팅 곡선·접선) ──
+const anaPlugin={
+  id:'anaOverlay',
+  afterDatasetsDraw(chart){
+    const ctx=chart.ctx, area=chart.chartArea, xs=chart.scales.x;
+    const ys=chart.scales.y||chart.scales.yTemp;
+    if(!xs||!ys) return;
+    // 적분 채움
+    if(chart.$integral){
+      const {t1,t2,series}=chart.$integral;
+      const cd=S.chartData[chart.$sid];
+      ctx.save();
+      series.forEach(di=>{
+        const d=cd.datasets[di]; if(!d) return;
+        const seg=d.data.filter(p=>p.x>=t1&&p.x<=t2);
+        if(seg.length<2) return;
+        const y0=Math.max(area.top, Math.min(area.bottom, ys.getPixelForValue(0)));
+        ctx.beginPath();
+        ctx.moveTo(xs.getPixelForValue(seg[0].x), y0);
+        seg.forEach(p=>ctx.lineTo(xs.getPixelForValue(p.x), ys.getPixelForValue(p.y)));
+        ctx.lineTo(xs.getPixelForValue(seg[seg.length-1].x), y0);
+        ctx.closePath();
+        ctx.globalAlpha=0.22;
+        ctx.fillStyle=cssVar('--teal','#2dd4bf');
+        ctx.fill();
+        ctx.globalAlpha=1;
+      });
+      ctx.restore();
+    }
+    // 피팅 곡선 (점선, 강조색)
+    if(chart.$fits&&chart.$fits.length){
+      ctx.save();
+      ctx.setLineDash([5,4]);
+      ctx.lineWidth=1.8;
+      ctx.strokeStyle=cssVar('--amber','#f5a623');
+      chart.$fits.forEach(f=>{
+        ctx.beginPath();
+        const N=100;
+        for(let i=0;i<=N;i++){
+          const x=f.t1+(f.t2-f.t1)*i/N;
+          const yy=f.fn(x);
+          if(!isFinite(yy)) continue;
+          const pxx=xs.getPixelForValue(x), pyy=ys.getPixelForValue(yy);
+          if(i===0) ctx.moveTo(pxx,pyy); else ctx.lineTo(pxx,pyy);
+        }
+        ctx.stroke();
+      });
+      ctx.restore();
+    }
+    // 접선
+    if(chart.$tan){
+      const t=chart.$tan;
+      const cx=xs.getPixelForValue(t.x), cy=ys.getPixelForValue(t.y);
+      const spanX=(xs.max-xs.min)*0.12;
+      const x1=t.x-spanX, x2=t.x+spanX;
+      const y1=t.y-t.slope*spanX, y2=t.y+t.slope*spanX;
+      ctx.save();
+      ctx.strokeStyle=cssVar('--red','#ff4f6a');
+      ctx.lineWidth=1.5;
+      ctx.beginPath();
+      ctx.moveTo(xs.getPixelForValue(x1), ys.getPixelForValue(y1));
+      ctx.lineTo(xs.getPixelForValue(x2), ys.getPixelForValue(y2));
+      ctx.stroke();
+      // 크로스헤어 점
+      ctx.fillStyle=ctx.strokeStyle;
+      ctx.beginPath(); ctx.arc(cx,cy,3,0,Math.PI*2); ctx.fill();
+      // 라벨 칩 — 경계 밖이면 반대편으로 플립
+      const label=t.label;
+      ctx.font='10px "JetBrains Mono", monospace';
+      const w=ctx.measureText(label).width+12;
+      let lx=cx+10, ly=cy-24;
+      if(lx+w>area.right) lx=cx-w-10;
+      if(ly<area.top) ly=cy+10;
+      ctx.globalAlpha=0.94;
+      ctx.fillStyle=cssVar('--bg4','#222736');       // 라벨 칩: --panel2 계열 (L-4)
+      ctx.strokeStyle=cssVar('--border2','rgba(255,255,255,0.13)');
+      ctx.beginPath(); ctx.roundRect(lx,ly,w,17,4); ctx.fill(); ctx.stroke();
+      ctx.globalAlpha=1;
+      ctx.fillStyle=cssVar('--text','#e8eaf0');
+      ctx.fillText(label,lx+6,ly+12);
+      ctx.restore();
+    }
+  }
+};
+Chart.register(anaPlugin);
+
+// 모든 분석 오버레이·상태 해제 (기능 3 초기화·수집 재시작 시)
+function clearAnalysis(){
+  S.tangentSid=null;
+  Object.keys(S.charts).forEach(sid=>{
+    const ch=S.charts[sid];
+    delete ch.$tan; delete ch.$integral; delete ch.$fits;
+    if(ch.$fitview){
+      delete ch.options.scales.x.min; delete ch.options.scales.x.max;
+      if(ch.options.scales.y){ delete ch.options.scales.y.min; delete ch.options.scales.y.max; }
+      ch.$fitview=false;
+    }
+    ch.update('none');
+    const body=document.getElementById('arb-'+sid); if(body) body.innerHTML='';
+    const det=document.getElementById('ar-'+sid); if(det) det.open=false;
+    const tb=document.getElementById('tb-'+sid);
+    if(tb) tb.querySelectorAll('.on').forEach(b=>b.classList.remove('on'));
+  });
+}
+
+// CSS 변수 → 캔버스 색 (L-8: 하드코딩 금지 — 테마 토큰 사용)
+function cssVar(n, fallback){
+  try{ const v=getComputedStyle(document.body).getPropertyValue(n).trim(); return v||fallback; }
+  catch(e){ return fallback; }
+}
 
 // 차트의 x 데이터 범위 [min,max] — XY 모드는 x가 비단조라 전체 스캔
 function _chartXRange(sid){
@@ -1105,9 +1583,12 @@ const roiPlugin={
     const x2=Math.min(area.right, xs.getPixelForValue(S.roi.t2));
     if(x2<=x1) return;
     ctx.save();
-    ctx.fillStyle = S.theme==='dark' ? 'rgba(45,212,191,0.12)' : 'rgba(45,212,191,0.12)';  /* --teal 12% */
+    const teal=cssVar('--teal','#2dd4bf');
+    ctx.globalAlpha=0.12;                       // --teal 12% (L-8)
+    ctx.fillStyle=teal;
     ctx.fillRect(x1, area.top, x2-x1, area.bottom-area.top);
-    ctx.strokeStyle='rgba(45,212,191,0.55)';
+    ctx.globalAlpha=0.55;
+    ctx.strokeStyle=teal;
     ctx.lineWidth=1;
     ctx.beginPath();
     ctx.moveTo(x1,area.top); ctx.lineTo(x1,area.bottom);
@@ -1174,6 +1655,9 @@ function attachRoiDrag(canvas, sid){
   };
   canvas.addEventListener('pointerup',finish);
   canvas.addEventListener('pointercancel',finish);
+
+  // 접선 도구 (기능 6-B): 활성 시 포인터 추적
+  canvas.addEventListener('pointermove',(e)=>{ if(!_roiDrag) tangentMove(sid, e.offsetX, e.offsetY); });
 
   // 우클릭: 선택 영역 안 → ROI 메뉴 / 선택 없음 → 전체 구간 메뉴 / 선택 밖 → 브라우저 기본
   canvas.addEventListener('contextmenu',(e)=>{
