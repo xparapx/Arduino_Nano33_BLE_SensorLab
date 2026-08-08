@@ -1,0 +1,82 @@
+<phyphox xmlns="http://phyphox.org/xml" version="1.14">
+    <title>환경 (기압·온도·습도)</title>
+    <category>Nano 33 BLE Sense</category>
+    <description>LPS22HB(기압·온도)와 HS3003(온도·습도)을 동시에 측정합니다.</description>
+
+    <data-containers>
+        <container size="0">t</container>
+        <container size="0">p</container>
+        <container size="0">t1</container>
+        <container size="0">t2</container>
+        <container size="0">rh</container>
+    </data-containers>
+
+    <input>
+        <bluetooth name="Nano" mode="notification" subscribeOnStart="true">
+        <config char="cddf1003-30f7-4671-8b43-5e40ba53514a" conversion="hexadecimal">00003041</config>
+        <output char="cddf1002-30f7-4671-8b43-5e40ba53514a" conversion="float32LittleEndian" offset="0">t</output>
+        <output char="cddf1002-30f7-4671-8b43-5e40ba53514a" conversion="float32LittleEndian" offset="4">p</output>
+        <output char="cddf1002-30f7-4671-8b43-5e40ba53514a" conversion="float32LittleEndian" offset="8">t1</output>
+        <output char="cddf1002-30f7-4671-8b43-5e40ba53514a" conversion="float32LittleEndian" offset="12">t2</output>
+        <output char="cddf1002-30f7-4671-8b43-5e40ba53514a" conversion="float32LittleEndian" offset="16">rh</output>
+        </bluetooth>
+    </input>
+
+    <analysis sleep="0" onUserInput="false"></analysis>
+
+    <views>
+    <view label="그래프">
+        <graph label="기압" labelX="시간" unitX="s" labelY="기압" unitY="hPa" partialUpdate="true" style="lines" lineWidth="2">
+            <input axis="x">t</input>
+            <input axis="y" color="4fc3f7">p</input>
+        </graph>
+        <graph label="온도 (센서 2종 비교)" labelX="시간" unitX="s" labelY="온도" unitY="°C" partialUpdate="true" style="lines" lineWidth="1.5">
+            <input axis="x">t</input>
+            <input axis="y" color="ff8a65">t1</input>
+            <input axis="x">t</input>
+            <input axis="y" color="ffab91">t2</input>
+        </graph>
+        <graph label="상대 습도" labelX="시간" unitX="s" labelY="습도" unitY="%" partialUpdate="true" style="lines" lineWidth="2">
+            <input axis="x">t</input>
+            <input axis="y" color="81d4fa">rh</input>
+        </graph>
+    </view>
+    <view label="측정값">
+        <info label="실시간 측정값" bold="true"/>
+        <separator height="0.3"/>
+        <value label="기압" size="2" precision="1" unit="hPa" color="4fc3f7">
+            <input>p</input>
+        </value>
+        <value label="온도 (기압계 LPS22HB)" size="2" precision="2" unit="°C" color="ff8a65">
+            <input>t1</input>
+        </value>
+        <value label="온도 (습도계 HS3003)" size="2" precision="2" unit="°C" color="ffab91">
+            <input>t2</input>
+        </value>
+        <value label="상대 습도" size="2" precision="1" unit="%" color="81d4fa">
+            <input>rh</input>
+        </value>
+    </view>
+    <view label="안내">
+        <info label="사용 방법" bold="true"/>
+        <separator height="0.3"/>
+        <info label="1. Nano 33 보드의 전원을 켭니다 (연결되면 LED가 초록색)."/>
+        <info label="2. 재생(▶) 버튼을 누르면 자동으로 연결되어 측정이 시작됩니다."/>
+        <info label="3. 일시정지 후 다시 시작하면 이어서 기록됩니다. 휴지통 아이콘으로 초기화."/>
+        <info label="4. 데이터 저장: 우측 상단 메뉴 → '데이터 내보내기' (CSV / Excel)."/>
+        <separator height="0.3"/>
+        <info label="두 온도 센서의 값 차이는 보드 내 발열·센서 특성 차이입니다."/>
+        <info label="기압으로 고도 변화(약 -0.12 hPa/m)를 관찰할 수 있습니다."/>
+    </view>
+    </views>
+
+    <export>
+        <set name="환경 데이터">
+            <data name="t (s)">t</data>
+            <data name="기압 (hPa)">p</data>
+            <data name="온도_기압계 (°C)">t1</data>
+            <data name="온도_습도계 (°C)">t2</data>
+            <data name="습도 (%)">rh</data>
+        </set>
+    </export>
+</phyphox>
