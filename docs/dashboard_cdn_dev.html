@@ -1926,14 +1926,29 @@ function buildMeta(){
   };
 }
 
-function exportCSV(){
-  if(!S.recorded.length){log('수집된 데이터가 없습니다.','err');return;}
-  exportData(S.recorded, 'ble_data_'+ts());
+// E-1 전역 내보내기: 내보내기 시점에 활성(토글 ON)인 센서의 행만 포함
+function _globalExportRows(){
+  const activeNames=new Set(SENSORS.filter(s=>S.active.has(s.id)).map(s=>s.name));
+  const rows=S.recorded.filter(r=>activeNames.has(r.sensor));
+  const excluded=[...new Set(S.recorded.filter(r=>!activeNames.has(r.sensor)).map(r=>r.sensor))];
+  return {rows, excluded, excludedRows:S.recorded.length-rows.length};
 }
-function exportXLSX(){
+function _exportGlobal(xlsx){
   if(!S.recorded.length){log('수집된 데이터가 없습니다.','err');return;}
-  exportData(S.recorded, 'ble_data_'+ts(), true);
+  if(S.active.size===0){log('활성 센서가 없습니다 — 전역 내보내기는 활성 센서의 행만 포함합니다.','err');return;}
+  const g=_globalExportRows();
+  if(!g.rows.length){log('활성 센서의 기록이 없습니다.','err');return;}
+  let extra=null;
+  if(g.excluded.length){
+    const msg=`비활성 센서 ${g.excluded.length}종의 기록 ${g.excludedRows}행은 제외됩니다`;
+    log(msg,'sys');
+    if(!confirm(msg+'.\n계속할까요?')) return;
+    extra={excluded_sensors:g.excluded.join(', ')};
+  }
+  exportData(g.rows, 'ble_data_'+ts(), xlsx, extra);
 }
+function exportCSV(){ _exportGlobal(false); }
+function exportXLSX(){ _exportGlobal(true); }
 function exportData(rows, name, xlsx=false, extraMeta=null){
   const meta=buildMeta();
   if(extraMeta) Object.assign(meta, extraMeta);
