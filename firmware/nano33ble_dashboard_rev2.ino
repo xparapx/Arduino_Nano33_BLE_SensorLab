@@ -105,8 +105,11 @@ void setup() {
   if (!BLE.begin()) {
     Serial.println("# [ERROR] BLE 초기화 실패");
   } else {
+    BLE.setDeviceName(deviceName.c_str());   // GAP 기기 이름 (연결 후 표시)
     BLE.setLocalName(deviceName.c_str());
-    BLE.setAdvertisedService(sensorService);
+    // 주의: setAdvertisedService(128비트 UUID)를 쓰면 31바이트 광고 패킷이 차서
+    // 이름이 스캔응답으로 밀려나고, Windows Chrome에서 '알 수 없는 기기'로 표시된다.
+    // 대시보드는 이름(BLE-) 필터로 검색하므로 서비스 광고는 생략 — 연결 후 접근 가능.
     sensorService.addCharacteristic(chImuAcc);
     sensorService.addCharacteristic(chImuGyr);
     sensorService.addCharacteristic(chImuMag);
