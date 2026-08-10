@@ -2088,8 +2088,9 @@ function attachRoiDrag(canvas, sid){
     // A-1: 드래그·선택 해제 등 모든 포인터 로직은 왼쪽 버튼에만 반응
     //      (우클릭 button 2·휠클릭 button 1은 선택 상태를 절대 변경하지 않음)
     if(e.button!==0) return;
-    if(S.recording) return;                      // 수집 중에는 선택 불가
-    if(!_chartXRange(sid)) return;               // 데이터 없으면 무시
+    // 무음 무동작 금지: 차단 사유를 토스트로 안내 (수집 중 / 데이터 없음 — 성분·변수 변경 직후 포함)
+    if(S.recording){ roiToast('수집 중에는 영역을 지정할 수 없습니다 — 정지 후 드래그하세요', canvas); return; }
+    if(!_chartXRange(sid)){ roiToast('표시된 데이터가 없습니다 — 수집 후 드래그하세요', canvas); return; }
     hideCtxMenu();
     _roiDrag={sid, x0:e.offsetX, y0:e.offsetY, moved:false};
     longPressFired=false;
