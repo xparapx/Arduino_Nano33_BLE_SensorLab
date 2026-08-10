@@ -2890,7 +2890,9 @@ void sendData(String line, BLEStringCharacteristic& ch) {
 // ════════════════════════════════════════════════════
 void setup() {
   Serial.begin(115200);
-  while (!Serial);
+  // 주의: while(!Serial) 무한 대기는 배터리/단독 부팅 시 BLE 광고를 막는다.
+  // 시리얼이 열리면 부팅 배너를 보여주되, 최대 3초만 기다리고 진행.
+  for (unsigned long t0 = millis(); !Serial && millis() - t0 < 3000; ) {}
 
   // ── 고유 ID 추출 ──────────────────────────────────
   deviceID   = getDeviceID();
@@ -3131,7 +3133,9 @@ void sendData(String line, BLEStringCharacteristic& ch) {
 
 void setup() {
   Serial.begin(115200);
-  while (!Serial);
+  // 주의: while(!Serial) 무한 대기는 배터리/단독 부팅 시 BLE 광고를 막는다.
+  // 시리얼이 열리면 부팅 배너를 보여주되, 최대 3초만 기다리고 진행.
+  for (unsigned long t0 = millis(); !Serial && millis() - t0 < 3000; ) {}
 
   deviceID   = getDeviceID();
   deviceName = "BLE-" + deviceID;
