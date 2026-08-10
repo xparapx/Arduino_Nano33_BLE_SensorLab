@@ -232,8 +232,11 @@ body.recording .ana-toolbar button{opacity:.4;cursor:not-allowed;}
 .ar-body{padding:0 0 9px;}
 .ar-row{font-size:11.5px;color:var(--text2);padding:3px 0;line-height:1.55;}
 .ar-row b{color:var(--text);}
-.ar-val{font-family:'JetBrains Mono','Fira Code',monospace;color:var(--teal);font-weight:600;}
-.ar-eq{font-family:'Georgia','Times New Roman',serif;font-style:italic;color:var(--amber);}
+/* LaTeX풍 수학 표기 — 분석 결과의 수식·기호·값을 세리프 이탤릭으로 통일 */
+.ar-math{font-family:'STIX Two Text','Times New Roman',Georgia,serif;font-style:italic;font-size:12.5px;}
+.ar-math sup{font-size:9px;}
+.ar-val{font-family:'STIX Two Text','Times New Roman',Georgia,serif;font-style:italic;font-size:12.5px;color:var(--teal);font-weight:600;}
+.ar-eq{font-family:'STIX Two Text','Times New Roman',Georgia,serif;font-style:italic;font-size:12.5px;color:var(--amber);}
 .ar-eq sup{font-size:9px;}
 .ar-unit{color:var(--text3);}
 .ar-rng{color:var(--text3);font-size:10px;}
@@ -273,7 +276,7 @@ body.recording .ax-chip{opacity:.4;cursor:not-allowed;}
   border:1px solid var(--border);border-radius:8px;cursor:pointer;transition:all .12s;}
 .fm-item:hover{border-color:var(--border2);background:var(--bg3);}
 .fm-item input{accent-color:var(--accent);margin:0;flex-shrink:0;}
-.fm-eq{font-family:'Georgia','Times New Roman',serif;font-style:italic;
+.fm-eq{font-family:'STIX Two Text','Times New Roman',Georgia,serif;font-style:italic;
   font-size:13.5px;color:var(--text);white-space:nowrap;flex:1;}
 .fm-eq sup{font-size:9.5px;}
 .fm-deg{margin-left:auto;width:60px;padding:3px 6px;font-size:11px;flex-shrink:0;}
@@ -1582,7 +1585,7 @@ function fitExp(pts){                      // y = a·e^(bx) — ln 선형화 초
   const r=lmFit(pts,(x,p)=>p[0]*Math.exp(p[1]*x),[Math.exp(lin.b), lin.a]);
   const [a,b]=r.p;
   return {params:{a,b}, fn:x=>a*Math.exp(b*x),
-          eq:`y = ${sig(a)}·e^(${sig(b)}x)`, eqHtml:`y = ${sig(a)}·e<sup>${sig(b)}x</sup>`};
+          eq:`y = ${sig(a)}·e^(${sig(b)}x)`, eqHtml:`y = ${sig(a)}·e<sup>${sig(b).replace('-','−')}x</sup>`};
 }
 function fitPower(pts){                    // y = a·x^b — log-log 선형화 → LM 정련
   const pp=pts.filter(p=>p.x>0&&p.y>0); if(pp.length<3) return null;
@@ -1590,7 +1593,7 @@ function fitPower(pts){                    // y = a·x^b — log-log 선형화 �
   const r=lmFit(pp,(x,p)=>p[0]*Math.pow(x,p[1]),[Math.exp(lin.b), lin.a]);
   const [a,b]=r.p;
   return {params:{a,b}, fn:x=>a*Math.pow(x,b),
-          eq:`y = ${sig(a)}·x^${sig(b)}`, eqHtml:`y = ${sig(a)}·x<sup>${sig(b)}</sup>`};
+          eq:`y = ${sig(a)}·x^${sig(b)}`, eqHtml:`y = ${sig(a)}·x<sup>${sig(b).replace('-','−')}</sup>`};
 }
 function fitSine(pts){                     // y = a·sin(bx + c) + d — 초기값 추정 → LM
   if(pts.length<6) return null;
@@ -1603,9 +1606,11 @@ function fitSine(pts){                     // y = a·sin(bx + c) + d — 초기�
   const b0=cross>0 ? Math.PI*cross/Math.max(span,1e-6) : 2*Math.PI/Math.max(span,1e-6);
   const r=lmFit(pts,(x,p)=>p[0]*Math.sin(p[1]*x+p[2])+p[3],[a0,b0,0,d0],400);
   const [a,b,c,d]=r.p;
+  // 부호 정리: '+ -0.117' 대신 '− 0.117' (plain은 ASCII '-')
+  const tm=(v,m)=>`${v<0?(m?'− ':'- '):'+ '}${sig(Math.abs(v))}`;
   return {params:{a,b,c,d}, fn:x=>a*Math.sin(b*x+c)+d,
-          eq:`y = ${sig(a)}·sin(${sig(b)}x + ${sig(c)}) + ${sig(d)}`,
-          eqHtml:`y = ${sig(a)}·sin(${sig(b)}x + ${sig(c)}) + ${sig(d)}`};
+          eq:`y = ${sig(a)}·sin(${sig(b)}x ${tm(c,false)}) ${tm(d,false)}`,
+          eqHtml:`y = ${sig(a)}·sin(${sig(b)}x ${tm(c,true)}) ${tm(d,true)}`};
 }
 function fitStats(pts,fn){                 // R², 잔차 RMS
   const n=pts.length;
@@ -1766,6 +1771,9 @@ function anaIntegral(sid){
   }
   const ch=S.charts[sid]; if(!ch) return;
   // B-3 규칙: 적분은 x구간만 사용 (y범위 무시 — 중간 점이 빠진 적분은 물리적으로 무의미)
+  // 표기: ∫ f dx 형식 — 적분 변수는 x축 변수 기호 (시간 축이면 t)
+  const gI=_graph(sid);
+  const dvar=(gI && gI.x!=='time') ? gvar(gI.x).label : 't';
   const results=[];
   analysisSeries(sid).forEach(su=>{
     const pts=analysisPoints(sid, su.idx, 'x');
@@ -1773,8 +1781,8 @@ function anaIntegral(sid){
     const v=trapz(pts);
     const unit=su.unit&&su.xUnit?`${su.unit}·${su.xUnit}`:'';
     results.push({label:su.label, val:v, unit, di:su.idx});
-    const plain=`∫${su.label} = ${sig(v)}${unit?` ${unit}`:''}  [x: ${S.roi.x1.toFixed(2)} ~ ${S.roi.x2.toFixed(2)}, x구간 기준]`;
-    anaResult(sid, `<b>∫ ${esc(su.label)}</b> = <span class="ar-val">${sig(v)}</span>${unit?` <span class="ar-unit">${esc(unit)}</span>`:''} <span class="ar-rng">(x: ${S.roi.x1.toFixed(2)} ~ ${S.roi.x2.toFixed(2)} · x구간 기준)</span>`, plain);
+    const plain=`∫ ${su.label} d${dvar} = ${sig(v)}${unit?` ${unit}`:''}  [${dvar}: ${S.roi.x1.toFixed(2)} ~ ${S.roi.x2.toFixed(2)}, x구간 기준]`;
+    anaResult(sid, `<b class="ar-math">∫ ${esc(su.label)} d${esc(dvar)}</b> <span class="ar-math">=</span> <span class="ar-val">${sig(v)}</span>${unit?` <span class="ar-unit">${esc(unit)}</span>`:''} <span class="ar-rng">(${esc(dvar)}: ${S.roi.x1.toFixed(2)} ~ ${S.roi.x2.toFixed(2)} · x구간 기준)</span>`, plain);
     log(plain,'sys');
   });
   if(!results.length){ log('선택 구간에 데이터가 없습니다.','err'); return; }
@@ -1851,12 +1859,12 @@ function anaFitRun(sid, modelId, seriesIdx, deg){
   const ch=S.charts[sid]; if(!ch) return;
   (ch.$fits=ch.$fits||[]).push({fn:fit.fn, x1:S.roi.x1, x2:S.roi.x2});
   ch.update('none');
-  const ptxt=Object.entries(fit.params).map(([k,v])=>`${k}=${sig(v)}`).join(', ');
+  // 표기: 수치가 대입된 수식만 (파라미터 나열 생략), 적합도는 R²만 (RMS 생략)
   const mname=model.hasDeg?`다항식 ${deg||1}차`:model.name;
-  const plain=`피팅[${mname}] ${su.label}: ${fit.eq} | ${ptxt} | R²=${sig(st.r2)} RMS=${sig(st.rms)}`;
+  const plain=`피팅[${mname}] ${su.label}: ${fit.eq} | R²=${sig(st.r2)}`;
   anaResult(sid,
-    `<b>ƒ ${esc(su.label)}</b> <span class="ar-eq">${fit.eqHtml||esc(fit.eq)}</span><br>`+
-    `<span class="ar-unit">${esc(ptxt)}</span> · <b>R²=${sig(st.r2)}</b> · RMS=${sig(st.rms)}`, plain);
+    `<b class="ar-math">ƒ ${esc(su.label)}</b> <span class="ar-eq">${fit.eqHtml||esc(fit.eq)}</span>`+
+    ` <span class="ar-rng">·</span> <b class="ar-math">R<sup>2</sup> = ${sig(st.r2)}</b>`, plain);
   log(plain,'sys');
 }
 
