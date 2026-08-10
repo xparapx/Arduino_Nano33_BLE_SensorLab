@@ -873,7 +873,20 @@ function seriesColor(v){
   if(!s) return '#3d7eff';
   return colorVar(s.color, v.axis, s.axes.length);
 }
-function defaultGraph(){ return {gid:newGid(), x:'time', y:_firstActiveVar(), y2:null}; }
+function defaultGraph(){ return {gid:newGid(), x:'time', y:_firstActiveVar(), yAxes:[0], y2:null}; }
+
+// ── 좌측 y축 복수 성분 (다축 센서: 같은 센서의 성분들은 좌축 스케일을 공유) ──
+// g.y = 대표 변수('sid:axis'), g.yAxes = 선택된 축 인덱스 목록. 구버전 저장분(yAxes 없음)은 [g.y의 축]으로 해석.
+function _yAxesOf(g){
+  const p=_parseVar(g.y);
+  const s=SENSORS.find(t=>t.id===p.sid);
+  const n=s?s.axes.length:1;
+  const ax=(Array.isArray(g.yAxes)&&g.yAxes.length?g.yAxes:[p.axis]).filter(a=>Number.isInteger(a)&&a>=0&&a<n);
+  return ax.length ? [...new Set(ax)].sort((a,b)=>a-b) : [0];
+}
+function gLeftVars(g){ const sid=_parseVar(g.y).sid; return _yAxesOf(g).map(a=>`${sid}:${a}`); }
+function gAllVars(g){ return [...gLeftVars(g), ...(g.y2?[g.y2]:[])]; }
+function gLeftCount(g){ return _yAxesOf(g).length; }
 
 function saveWorkspace(){
   try{
@@ -1014,9 +1027,8 @@ function createGraphChart(g){
   if(S.charts[gid]){ S.charts[gid].destroy(); delete S.charts[gid]; }
   const ctx=canvas.getContext('2d');
   const isXY=g.x!=='time';
-  const Y=gvar(g.y), Y2=g.y2?gvar(g.y2):null;
-  // 시리즈 색: 같은 센서의 다른 축도 구분되도록 축별 음영 적용
-  const c0=seriesColor(Y);
+  // 좌측 y축: 같은 센서의 성분 복수 선택 가능 — 모두 좌축('y') 스케일 공유
+  const leftVs=gLeftVars(g).map(gvar), Y2=g.y2?gvar(g.y2):null;
   const c1=Y2?seriesColor(Y2):null;
 
   const mkDs=(label,color,axisId,dash)=>({
@@ -1026,13 +1038,19 @@ function createGraphChart(g){
     yAxisID:axisId,
     ...(dash?{borderDash:[6,3]}:{}),   // 우측 y축 시리즈는 점선 — 다중 벡터 시각 구분
   });
-  S.chartData[gid]={datasets:[mkDs(Y.label,c0,'y',false), ...(Y2?[mkDs(Y2.label,c1,'y2',true)]:[])]};
+  S.chartData[gid]={datasets:[
+    ...leftVs.map(v=>mkDs(v.label,seriesColor(v),'y',false)),
+    ...(Y2?[mkDs(Y2.label,c1,'y2',true)]:[]),
+  ]};
 
   const scales={
     x:{ type:'linear', grid:{color:_gridC()},
         ticks:{maxTicksLimit:7,font:{size:9},callback:v=>(+v).toFixed(1)},
         title:{display:false} },
-    y:{ grid:{color:_gridC()}, ticks:{font:{size:9},maxTicksLimit:5,color:c0}, title:{display:false} },
+    // 눈금 색: 단일 성분이면 시리즈 색, 복수 성분이면 공유 축이므로 기본색
+    y:{ grid:{color:_gridC()},
+        ticks:{font:{size:9},maxTicksLimit:5,...(leftVs.length===1?{color:seriesColor(leftVs[0])}:{})},
+        title:{display:false} },
   };
   if(Y2) scales.y2={ position:'right', grid:{drawOnChartArea:false},
                      ticks:{font:{size:9},maxTicksLimit:5,color:c1}, title:{display:false} };
@@ -1063,11 +1081,12 @@ function createGraphChart(g){
 
 function updateGraphTitle(gid){
   const g=_graph(gid); if(!g) return;
-  const Y=gvar(g.y), Y2=g.y2?gvar(g.y2):null;
+  const leftVs=gLeftVars(g).map(gvar), Y2=g.y2?gvar(g.y2):null;
+  const yLbl=leftVs.map(v=>v.label).join('·');
   const t=document.getElementById('gt-'+gid);
-  if(t) t.textContent=`${Y.label}${Y2?' · '+Y2.label:''}  vs  ${g.x==='time'?'시간':gvar(g.x).label}`;
+  if(t) t.textContent=`${yLbl}${Y2?' · '+Y2.label:''}  vs  ${g.x==='time'?'시간':gvar(g.x).label}`;
   const bar=document.getElementById('gbar-'+gid);
-  if(bar) bar.style.background=seriesColor(Y);
+  if(bar) bar.style.background=seriesColor(leftVs[0]);
   const gb=document.getElementById('gb-'+gid);
   if(gb) gb.classList.toggle('hasy2', !!Y2);
   const y2g=document.getElementById('y2g-'+gid);
@@ -1078,18 +1097,19 @@ function updateGraphTitle(gid){
 function updateAxisChips(gid){
   const g=_graph(gid); if(!g) return;
   const X=g.x==='time'?null:gvar(g.x);
-  const Y=gvar(g.y), Y2=g.y2?gvar(g.y2):null;
+  const leftVs=gLeftVars(g).map(gvar), Y2=g.y2?gvar(g.y2):null;
   const xc=document.getElementById('axx-'+gid);
   const yc=document.getElementById('axy-'+gid);
   const y2c=document.getElementById('axy2-'+gid);
   if(xc) xc.textContent = X ? `${X.label}${X.unit?` (${X.unit})`:''}` : '시간 (s)';
-  if(yc) yc.textContent = `${Y.label}${Y.unit?` (${Y.unit})`:''}`;
+  if(yc) yc.textContent = `${leftVs.map(v=>v.label).join('·')}${leftVs[0].unit?` (${leftVs[0].unit})`:''}`;
   if(y2c && Y2) y2c.textContent = `${Y2.label}${Y2.unit?` (${Y2.unit})`:''}`;
 }
 
 // ── 변수 변경 ──
 function resetGraphData(gid){
-  S.graphRec[gid]=[[],[]];
+  const g=_graph(gid);
+  S.graphRec[gid]=g?gAllVars(g).map(()=>[]):[[],[]];
   const cd=S.chartData[gid];
   if(cd) cd.datasets.forEach(d=>d.data.length=0);
 }
@@ -1102,10 +1122,35 @@ function setGraphX(gid, v){
 }
 function setGraphY(gid, which, v){
   const g=_graph(gid); if(!g) return;
-  if(which===0) g.y=v; else g.y2=v;
+  if(which===0){ g.y=v; g.yAxes=[_parseVar(v).axis]; delete S.seriesOff[gid]; }
+  else g.y2=v;
   resetGraphData(gid); clearRoi();
   createGraphChart(g); saveWorkspace();
   log(`${which===0?'y축':'우측 y축'}: ${gvar(v).label}`,'sys');
+}
+// y축 성분 토글 — 같은 센서면 성분 추가/제거(좌축 스케일 공유), 다른 센서면 그 센서로 교체
+function toggleYComp(gid, v){
+  if(S.recording){ roiToast('수집 중에는 변경할 수 없습니다'); return; }
+  const g=_graph(gid); if(!g) return;
+  const p=_parseVar(v), cur=_parseVar(g.y);
+  if(p.sid===cur.sid){
+    let ax=_yAxesOf(g);
+    if(ax.includes(p.axis)){
+      if(ax.length===1){ roiToast('최소 1개 성분은 선택되어야 합니다'); return; }
+      ax=ax.filter(a=>a!==p.axis);
+    } else {
+      ax=[...ax, p.axis].sort((a,b)=>a-b);
+    }
+    g.yAxes=ax; g.y=`${p.sid}:${ax[0]}`;
+  } else {
+    g.y=v; g.yAxes=[p.axis];
+    // 우측 y축은 좌축과 다른 센서만 허용 — 좌축 센서가 바뀌어 충돌하면 우측 축 해제
+    if(g.y2 && _parseVar(g.y2).sid===p.sid) g.y2=null;
+  }
+  delete S.seriesOff[gid];      // 시리즈 인덱스 구성이 바뀌므로 성분 토글 초기화
+  resetGraphData(gid); clearRoi();
+  createGraphChart(g); saveWorkspace();
+  log(`y축: ${gLeftVars(g).map(x=>gvar(x).label).join('·')}`,'sys');
 }
 function _varMenuItems(cur, onPick, extra){
   const items=[...(extra||[])];
@@ -1128,14 +1173,27 @@ function axisMenuX(gid, ev){
 function axisMenuY(gid, ev){
   ev.stopPropagation();
   if(S.recording){ roiToast('수집 중에는 변경할 수 없습니다', ev.currentTarget); return; }
-  const g=_graph(gid); if(!g) return;
   const r=ev.currentTarget.getBoundingClientRect();
-  _showMenuAt('y축 변수', _varMenuItems(g.y, v=>setGraphY(gid,0,v)), r.right+6, r.top);
+  _yMenuAt(gid, r.right+6, r.top);
 }
-// 우측 y축 후보: 좌측 y와 같은 변수는 제외 (동일 곡선 겹침 방지)
+// y축 변수 메뉴 — 같은 센서 성분은 체크박스식 복수 선택(클릭할 때마다 메뉴 유지·재표시)
+function _yMenuAt(gid, mx, my){
+  const g=_graph(gid); if(!g) return;
+  const curSid=_parseVar(g.y).sid, sel=new Set(_yAxesOf(g));
+  const items=[{group:true,t:'센서 변수 — 같은 센서는 복수 선택 가능'}];
+  _xyVarOptions(false).forEach(o=>{
+    const p=_parseVar(o.v);
+    const on=p.sid===curSid && sel.has(p.axis);
+    items.push({t:`${on?'☑':'☐'} ${o.label}`, f:()=>{ toggleYComp(gid, o.v); _yMenuAt(gid, mx, my); }});
+  });
+  _showMenuAt('y축 변수', items, mx, my);
+}
+// 우측 y축 후보: 좌측 y와 같은 센서는 전부 제외 — 같은 센서 성분은 좌축 복수 선택으로 해결(스케일 공유),
+// 우측 축은 값 범위(스케일)가 다른 '다른 센서'를 겹쳐 볼 때만 생성
 function _y2Options(gid){
   const g=_graph(gid); if(!g) return [];
-  return _xyVarOptions(false).filter(o=>o.v!==g.y);
+  const leftSid=_parseVar(g.y).sid;
+  return _xyVarOptions(false).filter(o=>_parseVar(o.v).sid!==leftSid);
 }
 function axisMenuY2(gid, ev){
   ev.stopPropagation();
@@ -1153,7 +1211,7 @@ function axisMenuY2(gid, ev){
 function addY2Menu(gid, r){
   const g=_graph(gid); if(!g) return;
   const opts=_y2Options(gid);
-  if(!opts.length){ roiToast('추가할 다른 변수가 없습니다 — 센서를 더 켜세요'); return; }
+  if(!opts.length){ roiToast('다른 센서를 켜야 우측 y축을 추가할 수 있습니다 (같은 센서 성분은 y축 칩에서 복수 선택)'); return; }
   const items=opts.map(o=>({t:o.label, f:()=>setGraphY(gid,1,o.v)}));
   _showMenuAt('우측 y축 변수 선택', items, r.left-120, r.bottom+6);
 }
@@ -1260,14 +1318,14 @@ function undock(gid){
 function retargetGraphsToActive(){
   if(!S.active.size) return;
   S.graphs.forEach(g=>{
-    const rec=S.graphRec[g.gid]||[[],[]];
-    const hasData=rec[0].length>0 || rec[1].length>0;
+    const rec=S.graphRec[g.gid]||[];
+    const hasData=rec.some(a=>a&&a.length>0);
     if(hasData) return;
     const yv=_parseVar(g.y);
     if(S.active.has(yv.sid)) return;
     const s=SENSORS.find(t=>S.active.has(t.id));
     if(!s) return;
-    g.y=`${s.id}:0`;
+    g.y=`${s.id}:0`; g.yAxes=[0];
     if(g.y2 && !S.active.has(_parseVar(g.y2).sid)) g.y2=null;
     if(g.x!=='time' && !S.active.has(_parseVar(g.x).sid)) g.x='time';
     createGraphChart(g);
@@ -1347,10 +1405,10 @@ function pushData(sid, values){
   const now=new Date();
   const elapsed=S.recActualStart ? +((now-S.recActualStart)/1000).toFixed(2) : 0;
 
-  // r4-D: 그래프 라우팅 — 각 그래프의 y/y2 변수가 이 센서면 페어링해 append
+  // r4-D: 그래프 라우팅 — 각 그래프의 y(복수 성분 가능)/y2 변수가 이 센서면 페어링해 append
   S.graphs.forEach(g=>{
-    [g.y, g.y2].forEach((yv,k)=>{
-      if(!yv) return;
+    const vars=gAllVars(g);   // [좌축 성분들..., y2?] — datasets·graphRec 인덱스와 동일 순서
+    vars.forEach((yv,k)=>{
       const Y=_parseVar(yv);
       if(Y.sid!==sid) return;
       const yval=values[Y.axis];
@@ -1368,7 +1426,8 @@ function pushData(sid, values){
         while(cd.datasets[k].data.length>S.bufSize) cd.datasets[k].data.shift();
       }
       // 비롤링 기록 — 내보내기·분석이 화면 버퍼 한계와 무관하게 정합 (E-2 전제)
-      (S.graphRec[g.gid]=S.graphRec[g.gid]||[[],[]])[k].push({t:elapsed, x:xval, y:yval});
+      const rec=(S.graphRec[g.gid]=S.graphRec[g.gid]||vars.map(()=>[]));
+      (rec[k]=rec[k]||[]).push({t:elapsed, x:xval, y:yval});
       if(S.charts[g.gid]) S.charts[g.gid].update('none');
     });
   });
@@ -1402,7 +1461,7 @@ function resetCharts(){
     cd.datasets.forEach(d=>d.data.length=0);
     if(S.charts[gid]) S.charts[gid].update('none');
   });
-  Object.keys(S.graphRec).forEach(k=>S.graphRec[k]=[[],[]]);
+  Object.keys(S.graphRec).forEach(k=>{ const g=_graph(k); S.graphRec[k]=g?gAllVars(g).map(()=>[]):[[],[]]; });
 }
 
 // ═══════════════════════════════════════════════
@@ -1416,7 +1475,7 @@ S.roi={show:false,sid:null,x1:0,x2:0,y1:0,y2:0};
 S.roiHintShown=false;   // 1회성 힌트 (세션 단위)
 S.graphs=[];            // r4-D: 그래프 정의 [{gid,x,y,y2}]
 S.layoutRows=[];        // r4-D: 워크스페이스 행 배치 [[gid],[gid,gid]]
-S.graphRec={};          // {gid:[[{t,x,y}...],[...]]} — 그래프별 비롤링 기록 (내보내기·분석 소스)
+S.graphRec={};          // {gid:[시리즈별 [{t,x,y}...]]} — gAllVars 순서(좌축 성분들, y2). 비롤링 기록 (내보내기·분석 소스)
 S.latest={};            // {sid:[v...]} — 각 센서 최신값 캐시 (XY 페어링 소스)
 S.seriesOff={};         // {sid:Set(axisIdx)} — 꺼진 성분 (B-2: 분석·내보내기에서 제외)
 S.aimOn={};             // {gid:bool} — 조준(좌표 툴팁) 도구 활성 상태
@@ -1438,15 +1497,16 @@ function applySeriesVisibility(gid){
 function renderSeriesToggles(gid){
   const el=document.getElementById('sr-'+gid); if(!el) return;
   const g=_graph(gid); if(!g){ el.style.display='none'; return; }
-  const sers=[gvar(g.y), g.y2?gvar(g.y2):null].filter(Boolean);
+  const leftN=gLeftCount(g);
+  const sers=gAllVars(g).map(gvar);
   if(sers.length<2){ el.style.display='none'; return; }
   el.style.display='';
   const off=_offSet(gid);
   el.innerHTML=sers.map((v,k)=>{
     const color=seriesColor(v);
-    // 우측 y축(k=1) 시리즈는 라벨에도 점선 표시(‑ ‑)로 구분
+    // 우측 y축 시리즈(좌축 성분 뒤)는 라벨에도 점선 표시(┄)로 구분
     return `<label class="st-item${off.has(k)?' off':''}" style="color:${color}">`+
-      `<input type="checkbox" ${off.has(k)?'':'checked'} onchange="toggleSeries('${gid}',${k})">${v.label}${k===1?' ┄':''}</label>`;
+      `<input type="checkbox" ${off.has(k)?'':'checked'} onchange="toggleSeries('${gid}',${k})">${v.label}${k>=leftN?' ┄':''}</label>`;
   }).join('');
 }
 let _roiDrag=null;      // {sid,x0} 드래그 진행 상태
@@ -1613,8 +1673,8 @@ function analysisSeries(gid){
   const xU = g.x==='time' ? 's' : (gvar(g.x).unit||'');
   const off=_offSet(gid);
   const out=[];
-  [gvar(g.y), g.y2?gvar(g.y2):null].forEach((v,k)=>{
-    if(!v||off.has(k)) return;
+  gAllVars(g).map(gvar).forEach((v,k)=>{
+    if(off.has(k)) return;
     out.push({idx:k, label:v.label, unit:v.unit||'', xUnit:xU});
   });
   return out;
@@ -1624,8 +1684,9 @@ function analysisPoints(gid, seriesIdx, roiMode){
   const rec=(S.graphRec[gid]||[])[seriesIdx]||[];
   const useRoi=!!roiMode && S.roi.show;
   const box=useRoi?_roiBox():null;
-  // D-4: ROI의 y범위는 주 y축(좌) 기준 — y2 시리즈는 x범위만 적용
-  const hasY=useRoi && roiMode==='box' && seriesIdx===0;
+  // D-4: ROI의 y범위는 주 y축(좌) 기준 — 좌축 시리즈에만 적용, y2 시리즈는 x범위만
+  const g=_graph(gid);
+  const hasY=useRoi && roiMode==='box' && g && seriesIdx<gLeftCount(g);
   let pts=rec.map(r=>({x:r.x,y:r.y}));
   if(box) pts=pts.filter(p=>p.x>=box.x1&&p.x<=box.x2);
   if(hasY) pts=pts.filter(p=>p.y>=box.y1&&p.y<=box.y2);
@@ -2114,12 +2175,13 @@ function chartScopeRows(gid, box){
   const hasYBox = box && box.y1!==undefined && box.y1!==null;
   const xSym = g.x==='time' ? null : gvar(g.x).label;
   const off=_offSet(gid);
-  const sers=[{k:0,v:gvar(g.y)}, ...(g.y2?[{k:1,v:gvar(g.y2)}]:[])].filter(se=>!off.has(se.k));
+  const leftN=gLeftCount(g);
+  const sers=gAllVars(g).map((v,k)=>({k, v:gvar(v)})).filter(se=>!off.has(se.k));
   const rows=[];
   sers.forEach(se=>{
     ((S.graphRec[gid]||[])[se.k]||[]).forEach(r=>{
       if(box && (r.x<box.x1||r.x>box.x2)) return;
-      if(hasYBox && se.k===0 && (r.y<box.y1||r.y>box.y2)) return;
+      if(hasYBox && se.k<leftN && (r.y<box.y1||r.y>box.y2)) return;
       const o={elapsed_s:r.t};
       if(xSym) o[xSym]=r.x;
       o[se.v.label]=r.y;
@@ -2140,17 +2202,18 @@ function exportChartScope(gid, useRoi, xlsx){
   const g=_graph(gid); if(!g) return;
   const rows=chartScopeRows(gid, useRoi?_roiBox():null);
   if(!rows.length){log('내보낼 데이터가 없습니다.','err');return;}
-  const Y=gvar(g.y), Y2=g.y2?gvar(g.y2):null;
+  const yLbl=gLeftVars(g).map(v=>gvar(v).label).join('·');
+  const Y2=g.y2?gvar(g.y2):null;
   const xName=g.x==='time'?'t':gvar(g.x).label;
   const extra={
     export_scope:'chart',
-    chart_vars:`x=${xName}, y=${Y.label}${Y2?', y2='+Y2.label:''}`,
+    chart_vars:`x=${xName}, y=${yLbl}${Y2?', y2='+Y2.label:''}`,
   };
   if(useRoi){
     extra.roi_x=`[${sig(S.roi.x1)}, ${sig(S.roi.x2)}]`;
     extra.roi_y=`[${sig(S.roi.y1)}, ${sig(S.roi.y2)}]`+(Y2?' (주 y축 기준)':'');
   }
-  const name=`${Y.label}-vs-${xName}${useRoi?'_roi':''}_${ts()}`.replace(/[^\w가-힣.\-]/g,'_');
+  const name=`${yLbl}-vs-${xName}${useRoi?'_roi':''}_${ts()}`.replace(/[^\w가-힣.\-]/g,'_');
   exportData(rows, name, xlsx, extra);
   log(`${xlsx?'XLSX':'CSV'} 저장(차트 스코프): ${name} (${rows.length}행)`,'sys');
 }
